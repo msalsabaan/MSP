@@ -1,0 +1,32 @@
+// Semantic design tokens as CSS custom properties.
+// Switching theme = swapping these values (see ThemeService toggling `.dark`).
+//
+// Palette: warm paper & ink — a Swiss architectural monograph. Cream ground,
+// near-black warm ink, a single warm clay accent used as a red thread.
+// `hairline` is a faint rule color for the editorial grid.
+
+:root {
+  --bg: #f6f4ee; // warm cream paper
+  --surface: #efece3; // slightly deeper paper for raised blocks
+  --ink: #1a1712; // near-black, warm
+  --muted: #837b6e; // muted warm taupe
+  --border: #ddd7ca; // soft warm border
+  --hairline: #c9c2b3; // editorial hairline rule
+  --accent: #b85c38; // warm clay / terracotta
+  --accent-ink: #f6f4ee; // text/icon color on top of accent
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #14110d; // warm near-black
+  --surface: #1d1914; // raised warm charcoal
+  --ink: #f1ece1; // warm bone
+  --muted: #9a9182; // muted warm taupe
+  --border: #2c281f; // low-contrast warm border
+  --hairline: #38322789; // faint warm hairline
+  --accent: #d6794f; // lighter clay for contrast on dark
+  --accent-ink: #14110d;
+
+  color-scheme: dark;
+}

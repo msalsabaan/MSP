@@ -1,0 +1,222 @@
+// Global styles. Tailwind itself is loaded via src/tailwind.css (PostCSS),
+// kept separate so the SCSS compiler never tries to resolve the Tailwind import.
+@use "./styles/themes/themes";
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+// ── Arabic / RTL ──────────────────────────────────────────────
+// Frutiger LT Arabic 45 Light (licensed, self-hosted). It ships as a single
+// Light master, so we disable weight synthesis to keep every line cleanly light
+// — matching the brand reference. Falls back to IBM Plex Sans Arabic.
+@font-face {
+  font-family: "Frutiger LT Arabic";
+  src:
+    url("/fonts/frutiger-arabic-light.woff2") format("woff2"),
+    url("/fonts/frutiger-arabic-light.ttf") format("truetype");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+// Arabic uses Frutiger everywhere (it also covers Latin digits), and must NOT
+// have uppercasing or letter-spacing — both break Arabic shaping.
+html[lang="ar"] {
+  // Single-weight font: never fake a bolder cut.
+  font-synthesis: none;
+
+  body,
+  h1, h2, h3, h4, h5, h6,
+  .font-display,
+  .font-sans,
+  .font-mono {
+    font-family: "Frutiger LT Arabic", "IBM Plex Sans Arabic",
+      "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  [class*="uppercase"] {
+    text-transform: none;
+  }
+
+  [class*="tracking-"] {
+    letter-spacing: 0 !important;
+  }
+
+  // Arabic has no italics — keep the accent words upright.
+  .italic {
+    font-style: normal;
+  }
+}
+
+// ── Standardized title scale ──────────────────────────────────
+// Two tiers, one source of truth. `.t-display` = page heroes + CTA;
+// `.t-section` = section headings. Breakpoints mirror Tailwind (sm 640, lg 1024).
+.t-display {
+  font-size: 2.75rem;
+  line-height: 1.06;
+  @media (min-width: 640px) {
+    font-size: 3rem;
+  }
+  @media (min-width: 1024px) {
+    font-size: 4.25rem;
+  }
+}
+
+.t-section {
+  font-size: 2.25rem;
+  line-height: 1.05;
+  @media (min-width: 640px) {
+    font-size: 3rem;
+  }
+}
+
+// Arabic (Frutiger) is optically smaller than the Latin face at the same px,
+// so nudge titles up ~9% to match the English visual size.
+html[lang="ar"] {
+  .t-display {
+    font-size: 3rem;
+    @media (min-width: 640px) {
+      font-size: 3.25rem;
+    }
+    @media (min-width: 1024px) {
+      font-size: 4.6rem;
+    }
+  }
+
+  .t-section {
+    font-size: 2.45rem;
+    @media (min-width: 640px) {
+      font-size: 3.25rem;
+    }
+  }
+}
+
+// Flip inline directional arrows (marked with `.dir-flip`) in RTL.
+[dir="rtl"] .dir-flip {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+// Subtle paper grain for atmosphere — fixed overlay, never blocks interaction.
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.dark body::before {
+  mix-blend-mode: screen;
+  opacity: 0.05;
+}
+
+// Scroll-reveal: elements start slightly lowered and faded, then settle in
+// when the ScrollReveal directive adds `.is-visible`.
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+
+  &.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Clip-reveal for headlines: wipes up from a masked baseline.
+.reveal-line {
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 1s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.is-visible {
+    clip-path: inset(0 0 -10% 0);
+  }
+}
+
+// Slow editorial marquee.
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee-scroll 38s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+// Respect reduced-motion preferences.
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  // Never leave content hidden if motion is disabled.
+  .reveal,
+  .reveal-line {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+}

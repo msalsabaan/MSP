@@ -1,0 +1,23 @@
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { STORAGE_KEYS } from '../constants/api.constants';
+
+/** Attaches the bearer token (if present) to outgoing requests. */
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  if (!isPlatformBrowser(inject(PLATFORM_ID))) {
+    return next(req);
+  }
+
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem(STORAGE_KEYS.token);
+  } catch {
+    // ignore
+  }
+
+  if (token) {
+    req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+  }
+  return next(req);
+};
