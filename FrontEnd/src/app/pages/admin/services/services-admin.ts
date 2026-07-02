@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../../core/services/admin-api.service';
 import { Button } from '../../../shared/ui/button/button';
+import { ImageUploadField } from '../../../shared/ui/image-upload/image-upload';
 
 interface L { en: string; ar: string; }
 interface Service {
@@ -32,7 +33,7 @@ function blank(): Service {
 @Component({
   selector: 'app-admin-services',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Button],
+  imports: [FormsModule, Button, ImageUploadField],
   template: `
     <header class="flex items-end justify-between">
       <div>
@@ -93,8 +94,8 @@ function blank(): Service {
               <textarea [(ngModel)]="model().fullDescription.ar" rows="3" dir="rtl" class="inp"></textarea></label>
 
             <div class="grid grid-cols-2 gap-3">
-              <label class="block"><span class="lbl">Icon</span>
-                <input [(ngModel)]="model().icon" class="inp" /></label>
+              <label class="block"><span class="lbl">Icon / image</span>
+                <app-image-upload [(value)]="model().icon" /></label>
               <label class="block"><span class="lbl">Sort order</span>
                 <input type="number" [(ngModel)]="model().sortOrder" class="inp" /></label>
             </div>

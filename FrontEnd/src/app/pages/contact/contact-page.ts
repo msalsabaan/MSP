@@ -1,4 +1,4 @@
-import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Container } from '../../shared/ui/container/container';
 import { Button } from '../../shared/ui/button/button';
@@ -6,10 +6,17 @@ import { ScrollReveal } from '../../shared/directives/scroll-reveal.directive';
 import { TranslationService } from '../../core/services/translation.service';
 import { SeoService } from '../../core/services/seo.service';
 import { ApiService } from '../../core/services/api.service';
+import { PublicContentService } from '../../core/services/public-content.service';
+import { CompanyInfo } from '../../core/models/content.model';
 
 interface L {
   en: string;
   ar: string;
+}
+
+/** Wrap a single string as the same value in both languages. */
+function lv(s: string): L {
+  return { en: s, ar: s };
 }
 
 /** Contact page — details, an enquiry form (UI-only), and studio info. */
@@ -43,7 +50,7 @@ interface L {
           <!-- Details -->
           <div class="lg:col-span-5">
             <dl class="space-y-8">
-              @for (d of details; track d.label.en) {
+              @for (d of details(); track d.label.en) {
                 <div class="border-t border-hairline pt-4">
                   <dt class="font-mono text-xs uppercase tracking-[0.15em] text-accent">
                     {{ i18n.pick(d.label) }}
@@ -128,7 +135,11 @@ export class ContactPage {
   protected readonly i18n = inject(TranslationService);
   private readonly seo = inject(SeoService);
   private readonly api = inject(ApiService);
+  private readonly content = inject(PublicContentService);
   private readonly fb = new FormBuilder();
+
+  /** Company/contact info from the API; falls back to the static defaults below. */
+  private readonly cfg = signal<CompanyInfo>({});
 
   protected readonly submitted = signal(false);
   protected readonly sending = signal(false);
@@ -161,12 +172,24 @@ export class ContactPage {
     errMessage: { en: 'Please add a little more detail.', ar: 'الرجاء إضافة مزيدٍ من التفاصيل.' },
   };
 
-  protected readonly details: readonly { label: L; value: L; ltr?: boolean }[] = [
-    { label: { en: 'Email', ar: 'البريد الإلكتروني' }, value: { en: 'hello@msp.sa', ar: 'hello@msp.sa' }, ltr: true },
-    { label: { en: 'Telephone', ar: 'الهاتف' }, value: { en: '+966 11 000 0000', ar: '+966 11 000 0000' }, ltr: true },
-    { label: { en: 'Studio', ar: 'المكتب' }, value: { en: 'King Fahd Road, Riyadh, Saudi Arabia', ar: 'طريق الملك فهد، الرياض، المملكة العربية السعودية' } },
-    { label: { en: 'Hours', ar: 'ساعات العمل' }, value: { en: 'Sun–Thu · 9:00–17:00', ar: 'الأحد–الخميس · ٩:٠٠–١٧:٠٠' } },
-  ];
+  protected readonly details = computed<{ label: L; value: L; ltr?: boolean }[]>(() => {
+    const c = this.cfg();
+    return [
+      { label: { en: 'Email', ar: 'البريد الإلكتروني' }, value: lv(c.email || 'hello@msp.sa'), ltr: true },
+      { label: { en: 'Telephone', ar: 'الهاتف' }, value: lv(c.phone || '+966 11 000 0000'), ltr: true },
+      {
+        label: { en: 'Studio', ar: 'المكتب' },
+        value: {
+          en: c.addressEn || 'King Fahd Road, Riyadh, Saudi Arabia',
+          ar: c.addressAr || 'طريق الملك فهد، الرياض، المملكة العربية السعودية',
+        },
+      },
+      {
+        label: { en: 'Hours', ar: 'ساعات العمل' },
+        value: c.workingHours ?? { en: 'Sun–Thu · 9:00–17:00', ar: 'الأحد–الخميس · ٩:٠٠–١٧:٠٠' },
+      },
+    ];
+  });
 
   protected readonly labelClass = 'mb-3 block font-mono text-xs uppercase tracking-[0.12em] text-muted';
   protected readonly fieldClass =
@@ -201,6 +224,13 @@ export class ContactPage {
     this.seo.update({
       title: 'Contact',
       description: 'Get in touch with MSP Consultants — architecture & engineering in Riyadh.',
+    });
+
+    afterNextRender(() => {
+      this.content.settings().subscribe({
+        next: (c) => this.cfg.set(c ?? {}),
+        error: () => {},
+      });
     });
   }
 }

@@ -1,0 +1,15 @@
+# Secrets — never commit real environment files
+.env
+.env.*
+!.env.example
+
+# Playwright MCP debug artifacts
+.playwright-mcp/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+
+# Dependencies & build output (also covered by sub-project .gitignore files)
+node_modules/
+dist/

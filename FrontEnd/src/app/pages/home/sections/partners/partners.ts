@@ -1,5 +1,6 @@
-import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
 import { TranslationService } from '../../../../core/services/translation.service';
+import { PublicContentService } from '../../../../core/services/public-content.service';
 
 /** Section 08 — Clients: a quiet, continuous marquee of client wordmarks. */
 @Component({
@@ -38,11 +39,15 @@ import { TranslationService } from '../../../../core/services/translation.servic
 })
 export class Partners {
   protected readonly i18n = inject(TranslationService);
+  private readonly content = inject(PublicContentService);
 
   protected readonly label = {
     en: 'Trusted across the Kingdom',
     ar: 'جهاتٌ رائدة تثق بنا',
   };
+
+  /** Partner names from the API; falls back to the static bilingual list when empty. */
+  private readonly fetched = signal<string[]>([]);
 
   private readonly clients = {
     en: ['NEOM', 'Qiddiya', 'Diriyah Gate', 'Red Sea Global', 'Roshn', 'Aramco'],
@@ -51,7 +56,17 @@ export class Partners {
 
   /** Doubled list so the marquee track loops seamlessly at -50%. */
   protected readonly marqueeItems = computed(() => {
-    const list = this.i18n.pick(this.clients);
+    const fromApi = this.fetched();
+    const list = fromApi.length ? fromApi : this.i18n.pick(this.clients);
     return [...list, ...list];
   });
+
+  constructor() {
+    afterNextRender(() => {
+      this.content.partners().subscribe({
+        next: (ps) => this.fetched.set(ps.map((p) => p.name).filter(Boolean)),
+        error: () => {},
+      });
+    });
+  }
 }

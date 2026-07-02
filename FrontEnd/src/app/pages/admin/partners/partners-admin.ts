@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../../core/services/admin-api.service';
 import { Button } from '../../../shared/ui/button/button';
+import { ImageUploadField } from '../../../shared/ui/image-upload/image-upload';
 
 interface Partner {
   id?: string;
@@ -24,7 +25,7 @@ function blank(): Partner {
 @Component({
   selector: 'app-admin-partners',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Button],
+  imports: [FormsModule, Button, ImageUploadField],
   template: `
     <header class="flex items-end justify-between">
       <div>
@@ -64,8 +65,8 @@ function blank(): Partner {
             <label class="block"><span class="lbl">Name</span>
               <input [(ngModel)]="model().name" class="inp" /></label>
 
-            <label class="block"><span class="lbl">Logo (filename/URL)</span>
-              <input [(ngModel)]="model().logo" class="inp" /></label>
+            <label class="block"><span class="lbl">Logo</span>
+              <app-image-upload [(value)]="model().logo" /></label>
 
             <label class="block"><span class="lbl">Website URL</span>
               <input [(ngModel)]="model().url" class="inp" /></label>

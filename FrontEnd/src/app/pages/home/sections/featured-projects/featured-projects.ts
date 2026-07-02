@@ -1,16 +1,18 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Section } from '../../../../shared/ui/section/section';
 import { Container } from '../../../../shared/ui/container/container';
 import { ScrollReveal } from '../../../../shared/directives/scroll-reveal.directive';
 import { TranslationService } from '../../../../core/services/translation.service';
-import { PROJECTS } from '../../../../core/data/projects';
+import { PublicContentService } from '../../../../core/services/public-content.service';
+import { AssetPipe } from '../../../../shared/pipes/asset.pipe';
+import { Project } from '../../../../core/data/projects';
 
 /** Section 03 — Selected Works: a uniform, aligned grid of featured projects. */
 @Component({
   selector: 'app-featured-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Section, Container, ScrollReveal],
+  imports: [RouterLink, Section, Container, ScrollReveal, AssetPipe],
   template: `
     <app-section>
       <app-container>
@@ -31,16 +33,18 @@ import { PROJECTS } from '../../../../core/data/projects';
         </div>
 
         <div class="mt-12 grid gap-x-8 gap-y-14 sm:grid-cols-2">
-          @for (project of projects; track project.slug) {
+          @for (project of projects(); track project.slug) {
             <a [routerLink]="['/projects', project.slug]" class="group block">
-              <div appScrollReveal revealType="line" class="aspect-[4/3] overflow-hidden">
-                <img
-                  [src]="project.cover"
-                  [alt]="i18n.pick(project.title)"
-                  loading="lazy"
-                  decoding="async"
-                  class="h-full w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
-                />
+              <div appScrollReveal revealType="line" class="aspect-[4/3] overflow-hidden bg-hairline/40">
+                @if (project.cover) {
+                  <img
+                    [src]="project.cover | asset"
+                    [alt]="i18n.pick(project.title)"
+                    loading="lazy"
+                    decoding="async"
+                    class="h-full w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]"
+                  />
+                }
               </div>
 
               <div class="mt-5 flex items-baseline justify-between gap-4">
@@ -64,8 +68,18 @@ import { PROJECTS } from '../../../../core/data/projects';
 })
 export class FeaturedProjects {
   protected readonly i18n = inject(TranslationService);
+  private readonly content = inject(PublicContentService);
 
-  protected readonly projects = PROJECTS.filter((p) => p.featured).slice(0, 4);
+  protected readonly projects = signal<Project[]>([]);
+
+  constructor() {
+    afterNextRender(() => {
+      this.content.featuredProjects().subscribe({
+        next: (list) => this.projects.set(list.slice(0, 4)),
+        error: () => this.projects.set([]),
+      });
+    });
+  }
 
   protected readonly t = {
     eyebrow: { en: 'Selected Works', ar: 'مختاراتٌ من أعمالنا' },

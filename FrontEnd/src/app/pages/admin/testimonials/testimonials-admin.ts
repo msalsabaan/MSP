@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../../core/services/admin-api.service';
 import { Button } from '../../../shared/ui/button/button';
+import { ImageUploadField } from '../../../shared/ui/image-upload/image-upload';
 
 interface L { en: string; ar: string; }
 interface Testimonial {
@@ -29,7 +30,7 @@ function blank(): Testimonial {
 @Component({
   selector: 'app-admin-testimonials',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Button],
+  imports: [FormsModule, Button, ImageUploadField],
   template: `
     <header class="flex items-end justify-between">
       <div>
@@ -84,8 +85,8 @@ function blank(): Testimonial {
             <label class="block"><span class="lbl">Quote (AR)</span>
               <textarea [(ngModel)]="model().quote.ar" rows="3" dir="rtl" class="inp"></textarea></label>
 
-            <label class="block"><span class="lbl">Photo (filename/URL)</span>
-              <input [(ngModel)]="model().photo" class="inp" /></label>
+            <label class="block"><span class="lbl">Photo</span>
+              <app-image-upload [(value)]="model().photo" /></label>
 
             <div class="grid grid-cols-2 gap-3">
               <label class="block"><span class="lbl">Rating</span>

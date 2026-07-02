@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
 import { Container } from '../../shared/ui/container/container';
 import { Section } from '../../shared/ui/section/section';
 import { SectionHeading } from '../../shared/ui/section-heading/section-heading';
@@ -7,6 +7,9 @@ import { CountUp } from '../../shared/directives/count-up.directive';
 import { Cta } from '../home/sections/cta/cta';
 import { TranslationService } from '../../core/services/translation.service';
 import { SeoService } from '../../core/services/seo.service';
+import { PublicContentService } from '../../core/services/public-content.service';
+import { AssetPipe } from '../../shared/pipes/asset.pipe';
+import { TeamMember } from '../../core/models/content.model';
 
 interface L {
   en: string;
@@ -17,7 +20,7 @@ interface L {
 @Component({
   selector: 'app-about-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Container, Section, SectionHeading, ScrollReveal, CountUp, Cta],
+  imports: [Container, Section, SectionHeading, ScrollReveal, CountUp, Cta, AssetPipe],
   template: `
     <!-- Header -->
     <section class="border-b border-hairline bg-bg pt-16 pb-14 sm:pt-20">
@@ -113,24 +116,39 @@ interface L {
           [title]="i18n.pick(t.leadTitle)"
           [intro]="i18n.pick(t.leadIntro)"
         />
-        <div class="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
-          @for (m of leaders; track m.image; let i = $index) {
-            <article appScrollReveal [revealDelay]="i * 70" class="group">
-              <div appScrollReveal revealType="line" class="aspect-[4/5] overflow-hidden">
-                <img
-                  [src]="m.image"
-                  [alt]="i18n.pick(m.name)"
-                  loading="lazy"
-                  decoding="async"
-                  class="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0"
-                />
+        @if (loading()) {
+          <div class="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+            @for (i of skeletons; track i) {
+              <div class="animate-pulse">
+                <div class="aspect-[4/5] bg-hairline/60"></div>
+                <div class="mt-5 h-6 w-2/3 bg-hairline/60"></div>
+                <div class="mt-3 h-3 w-1/3 bg-hairline/40"></div>
+                <div class="mt-4 h-3 w-full bg-hairline/30"></div>
               </div>
-              <h3 class="mt-5 font-display text-xl font-medium text-ink">{{ i18n.pick(m.name) }}</h3>
-              <p class="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-accent">{{ i18n.pick(m.role) }}</p>
-              <p class="mt-3 text-sm leading-relaxed text-muted">{{ i18n.pick(m.bio) }}</p>
-            </article>
-          }
-        </div>
+            }
+          </div>
+        } @else {
+          <div class="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+            @for (member of team(); track member.id; let i = $index) {
+              <article appScrollReveal [revealDelay]="i * 70" class="group">
+                <div appScrollReveal revealType="line" class="aspect-[4/5] overflow-hidden bg-hairline/40">
+                  @if (member.photo) {
+                    <img
+                      [src]="member.photo | asset"
+                      [alt]="member.name"
+                      loading="lazy"
+                      decoding="async"
+                      class="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0"
+                    />
+                  }
+                </div>
+                <h3 class="mt-5 font-display text-xl font-medium text-ink">{{ member.name }}</h3>
+                <p class="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-accent">{{ i18n.pick(member.title) }}</p>
+                <p class="mt-3 text-sm leading-relaxed text-muted">{{ i18n.pick(member.bio) }}</p>
+              </article>
+            }
+          </div>
+        }
       </app-container>
     </app-section>
 
@@ -161,6 +179,11 @@ interface L {
 export class AboutPage {
   protected readonly i18n = inject(TranslationService);
   private readonly seo = inject(SeoService);
+  private readonly content = inject(PublicContentService);
+
+  protected readonly team = signal<TeamMember[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly skeletons = [0, 1, 2, 3];
 
   protected readonly t = {
     eyebrow: { en: 'The Practice', ar: 'المكتب' },
@@ -235,45 +258,6 @@ export class AboutPage {
     },
   ];
 
-  protected readonly leaders: readonly { name: L; role: L; bio: L; image: string }[] = [
-    {
-      name: { en: 'Mansour S. Pasha', ar: 'منصور س. باشا' },
-      role: { en: 'Founding Principal', ar: 'الشريك المؤسس' },
-      bio: {
-        en: 'Architect and founder, leading design direction across the practice for over a decade.',
-        ar: 'معماريٌّ ومؤسس، يقود التوجّه التصميمي للمكتب منذ أكثر من عقد.',
-      },
-      image: '/images/team-1.jpg',
-    },
-    {
-      name: { en: 'Dr. Reem Al-Sudairi', ar: 'د. ريم السديري' },
-      role: { en: 'Principal · Structures', ar: 'شريك · الإنشاءات' },
-      bio: {
-        en: 'Structural engineer specialising in long-span and high-rise systems.',
-        ar: 'مهندسة إنشائية متخصّصة في أنظمة البحور الواسعة والمباني الشاهقة.',
-      },
-      image: '/images/team-2.jpg',
-    },
-    {
-      name: { en: 'Karim Nasser', ar: 'كريم ناصر' },
-      role: { en: 'Associate · MEP', ar: 'شريك مشارك · كهروميكانيكا' },
-      bio: {
-        en: 'Leads building services and sustainability, targeting low-energy performance.',
-        ar: 'يقود الخدمات والاستدامة، مستهدفاً أداءً منخفض الاستهلاك.',
-      },
-      image: '/images/team-3.jpg',
-    },
-    {
-      name: { en: 'Hana Yousef', ar: 'هناء يوسف' },
-      role: { en: 'Associate · Urban Design', ar: 'شريك مشارك · التصميم العمراني' },
-      bio: {
-        en: 'Masterplanner shaping neighbourhoods, public realm, and mixed-use districts.',
-        ar: 'مخطّطة عمرانية تصوغ الأحياء والفضاء العام والمناطق متعددة الاستخدامات.',
-      },
-      image: '/images/team-4.jpg',
-    },
-  ];
-
   protected readonly timeline: readonly { year: string; title: L; body: L }[] = [
     {
       year: '2012',
@@ -302,6 +286,17 @@ export class AboutPage {
       title: 'Practice',
       description:
         'MSP Consultants — an integrated architecture & engineering practice in Riyadh. Our story, values, leadership, and trajectory.',
+    });
+
+    // Browser-only fetch: keeps the route prerenderable (static skeleton shell).
+    afterNextRender(() => {
+      this.content.team().subscribe({
+        next: (list) => {
+          this.team.set(list);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false),
+      });
     });
   }
 }

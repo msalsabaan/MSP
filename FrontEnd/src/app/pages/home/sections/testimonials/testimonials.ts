@@ -1,16 +1,24 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
 import { Section } from '../../../../shared/ui/section/section';
 import { Container } from '../../../../shared/ui/container/container';
 import { ScrollReveal } from '../../../../shared/directives/scroll-reveal.directive';
 import { TranslationService } from '../../../../core/services/translation.service';
+import { PublicContentService } from '../../../../core/services/public-content.service';
+import { Testimonial as TestimonialModel } from '../../../../core/models/content.model';
 
-interface Testimonial {
-  readonly quote: string;
-  readonly name: string;
-  readonly role: string;
+interface L {
+  en: string;
+  ar: string;
 }
 
-/** Section 06 — Words: a lead client quote with two supporting notes. */
+/** Unified quote shape used for both the API data and the static fallback. */
+interface Quote {
+  quote: L;
+  name: L;
+  role: L;
+}
+
+/** Section 06 — Words: a lead client quote with two supporting notes (from the API). */
 @Component({
   selector: 'app-testimonials',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,67 +34,107 @@ interface Testimonial {
           <span class="h-px flex-1 bg-hairline"></span>
         </div>
 
-        <figure class="mt-12 max-w-4xl">
-          <blockquote
-            appScrollReveal
-            class="font-display text-3xl font-medium leading-[1.25] tracking-[-0.02em] text-ink sm:text-4xl lg:text-5xl"
-          >
-            <span class="text-accent">&ldquo;</span>{{ i18n.pick(t.lead).quote
-            }}<span class="text-accent">&rdquo;</span>
-          </blockquote>
-          <figcaption
-            appScrollReveal
-            [revealDelay]="120"
-            class="mt-8 font-mono text-xs uppercase tracking-[0.15em] text-muted"
-          >
-            <span class="text-ink">{{ i18n.pick(t.lead).name }}</span> — {{ i18n.pick(t.lead).role }}
-          </figcaption>
-        </figure>
+        @if (lead(); as ld) {
+          <figure class="mt-12 max-w-4xl">
+            <blockquote
+              appScrollReveal
+              class="font-display text-3xl font-medium leading-[1.25] tracking-[-0.02em] text-ink sm:text-4xl lg:text-5xl"
+            >
+              <span class="text-accent">&ldquo;</span>{{ i18n.pick(ld.quote)
+              }}<span class="text-accent">&rdquo;</span>
+            </blockquote>
+            <figcaption
+              appScrollReveal
+              [revealDelay]="120"
+              class="mt-8 font-mono text-xs uppercase tracking-[0.15em] text-muted"
+            >
+              <span class="text-ink">{{ i18n.pick(ld.name) }}</span> — {{ i18n.pick(ld.role) }}
+            </figcaption>
+          </figure>
+        }
 
-        <div class="mt-16 grid gap-px overflow-hidden border border-hairline bg-hairline sm:grid-cols-2">
-          @for (item of i18n.pick(t.supporting); track item.name; let i = $index) {
-            <figure appScrollReveal [revealDelay]="i * 90" class="bg-bg p-8 lg:p-10">
-              <blockquote class="text-lg leading-relaxed text-ink">
-                {{ item.quote }}
-              </blockquote>
-              <figcaption class="mt-6 font-mono text-xs uppercase tracking-[0.13em] text-muted">
-                <span class="text-accent">{{ item.name }}</span> — {{ item.role }}
-              </figcaption>
-            </figure>
-          }
-        </div>
+        @if (supporting().length) {
+          <div class="mt-16 grid gap-px overflow-hidden border border-hairline bg-hairline sm:grid-cols-2">
+            @for (item of supporting(); track $index; let i = $index) {
+              <figure appScrollReveal [revealDelay]="i * 90" class="bg-bg p-8 lg:p-10">
+                <blockquote class="text-lg leading-relaxed text-ink">
+                  {{ i18n.pick(item.quote) }}
+                </blockquote>
+                <figcaption class="mt-6 font-mono text-xs uppercase tracking-[0.13em] text-muted">
+                  <span class="text-accent">{{ i18n.pick(item.name) }}</span> — {{ i18n.pick(item.role) }}
+                </figcaption>
+              </figure>
+            }
+          </div>
+        }
       </app-container>
     </app-section>
   `,
 })
 export class Testimonials {
   protected readonly i18n = inject(TranslationService);
+  private readonly content = inject(PublicContentService);
+
+  /** API testimonials; empty until loaded, then drives lead + supporting. */
+  private readonly fetched = signal<Quote[]>([]);
+
+  protected readonly lead = computed<Quote | null>(() => {
+    const api = this.fetched();
+    return api.length ? api[0] : this.fallbackLead;
+  });
+
+  protected readonly supporting = computed<Quote[]>(() => {
+    const api = this.fetched();
+    return api.length ? api.slice(1, 3) : this.fallbackSupporting;
+  });
+
+  constructor() {
+    afterNextRender(() => {
+      this.content.testimonials().subscribe({
+        next: (list) => this.fetched.set(list.map(toQuote)),
+        error: () => {},
+      });
+    });
+  }
 
   protected readonly t = {
     eyebrow: { en: 'Words', ar: 'آراء عملائنا' },
-    lead: {
-      en: {
-        quote:
-          'MSP held the architecture and the engineering to the same line. The result is a building that is beautiful, buildable, and exactly on budget.',
-        name: 'Eng. Faisal Al-Otaibi',
-        role: 'Director, Najd Development Authority',
-      },
-      ar: {
-        quote:
-          'وحّدت إم إس بي العمارة والهندسة على خطٍّ واحد، فجاء المبنى جميلاً وقابلاً للتنفيذ وضمن الميزانية تماماً.',
-        name: 'م. فيصل العتيبي',
-        role: 'مدير هيئة تطوير نجد',
-      },
+  };
+
+  private readonly fallbackLead: Quote = {
+    quote: {
+      en: 'MSP held the architecture and the engineering to the same line. The result is a building that is beautiful, buildable, and exactly on budget.',
+      ar: 'وحّدت إم إس بي العمارة والهندسة على خطٍّ واحد، فجاء المبنى جميلاً وقابلاً للتنفيذ وضمن الميزانية تماماً.',
     },
-    supporting: {
-      en: [
-        { quote: 'They resolved the difficult structural spans early, which kept the whole programme on track. A genuinely integrated team.', name: 'Lina Haddad', role: 'Project Lead, Marsa Holding' },
-        { quote: 'Rigorous, responsive, and unusually calm under pressure. We hand them our most complex sites for a reason.', name: 'Omar Khan', role: 'Head of Assets, Qiddiya' },
-      ],
-      ar: [
-        { quote: 'حسموا البحور الإنشائية الصعبة مبكراً، فبقي البرنامج كلّه في مساره. فريقٌ متكاملٌ بحق.', name: 'لينا حداد', role: 'قائدة مشروع — مرسى القابضة' },
-        { quote: 'دقّةٌ وسرعةُ استجابةٍ وهدوءٌ لافتٌ تحت الضغط. نُسند إليهم أصعب مواقعنا لسبب.', name: 'عمر خان', role: 'رئيس الأصول — القدية' },
-      ],
+    name: { en: 'Eng. Faisal Al-Otaibi', ar: 'م. فيصل العتيبي' },
+    role: { en: 'Director, Najd Development Authority', ar: 'مدير هيئة تطوير نجد' },
+  };
+
+  private readonly fallbackSupporting: Quote[] = [
+    {
+      quote: {
+        en: 'They resolved the difficult structural spans early, which kept the whole programme on track. A genuinely integrated team.',
+        ar: 'حسموا البحور الإنشائية الصعبة مبكراً، فبقي البرنامج كلّه في مساره. فريقٌ متكاملٌ بحق.',
+      },
+      name: { en: 'Lina Haddad', ar: 'لينا حداد' },
+      role: { en: 'Project Lead, Marsa Holding', ar: 'قائدة مشروع — مرسى القابضة' },
     },
+    {
+      quote: {
+        en: 'Rigorous, responsive, and unusually calm under pressure. We hand them our most complex sites for a reason.',
+        ar: 'دقّةٌ وسرعةُ استجابةٍ وهدوءٌ لافتٌ تحت الضغط. نُسند إليهم أصعب مواقعنا لسبب.',
+      },
+      name: { en: 'Omar Khan', ar: 'عمر خان' },
+      role: { en: 'Head of Assets, Qiddiya', ar: 'رئيس الأصول — القدية' },
+    },
+  ];
+}
+
+/** Map an API testimonial to the unified quote shape (clientName is single-language). */
+function toQuote(t: TestimonialModel): Quote {
+  return {
+    quote: t.quote,
+    name: { en: t.clientName, ar: t.clientName },
+    role: t.role,
   };
 }

@@ -2,8 +2,10 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../../core/services/admin-api.service';
 import { Button } from '../../../shared/ui/button/button';
+import { ImageUploadField } from '../../../shared/ui/image-upload/image-upload';
 
 interface L { en: string; ar: string; }
+interface Spec { label: L; value: L; }
 interface Project {
   id?: string;
   slug: string;
@@ -13,7 +15,11 @@ interface Project {
   location: L;
   year: string;
   cover: string;
+  gallery: string[];
   summary: L;
+  description: L[];
+  specs: Spec[];
+  services: L[];
   featured: boolean;
   status: 'draft' | 'published';
 }
@@ -23,7 +29,10 @@ function blank(): Project {
     slug: '', no: '', title: { en: '', ar: '' },
     typology: { key: '', en: '', ar: '' },
     location: { en: '', ar: '' }, year: '', cover: '',
-    summary: { en: '', ar: '' }, featured: false, status: 'published',
+    gallery: [],
+    summary: { en: '', ar: '' },
+    description: [], specs: [], services: [],
+    featured: false, status: 'published',
   };
 }
 
@@ -34,7 +43,7 @@ function blank(): Project {
 @Component({
   selector: 'app-admin-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Button],
+  imports: [FormsModule, Button, ImageUploadField],
   template: `
     <header class="flex items-end justify-between">
       <div>
@@ -105,19 +114,99 @@ function blank(): Project {
                 <input [(ngModel)]="model().location.ar" dir="rtl" class="inp" /></label>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block"><span class="lbl">Year</span>
-                <input [(ngModel)]="model().year" class="inp" /></label>
-              <label class="block"><span class="lbl">Cover (filename/URL)</span>
-                <input [(ngModel)]="model().cover" class="inp" /></label>
-            </div>
+            <label class="block"><span class="lbl">Year</span>
+              <input [(ngModel)]="model().year" class="inp" /></label>
+
+            <label class="block"><span class="lbl">Cover image</span>
+              <app-image-upload [(value)]="model().cover" /></label>
 
             <label class="block"><span class="lbl">Summary (EN)</span>
               <textarea [(ngModel)]="model().summary.en" rows="2" class="inp"></textarea></label>
             <label class="block"><span class="lbl">Summary (AR)</span>
               <textarea [(ngModel)]="model().summary.ar" rows="2" dir="rtl" class="inp"></textarea></label>
 
-            <div class="flex items-center gap-6">
+            <!-- Gallery -->
+            <div class="border-t border-hairline pt-5">
+              <div class="flex items-center justify-between">
+                <span class="lbl">Gallery</span>
+                <button type="button" (click)="addGalleryImage()" class="font-mono text-xs uppercase tracking-[0.12em] text-accent hover:underline">+ Add image</button>
+              </div>
+              <div class="mt-3 space-y-3">
+                @for (img of model().gallery; track $index; let i = $index) {
+                  <div class="flex items-start gap-3">
+                    <app-image-upload [(value)]="model().gallery[i]" />
+                    <button type="button" (click)="removeGalleryImage(i)" class="font-mono text-xs uppercase text-red-600 hover:underline">Remove</button>
+                  </div>
+                }
+                @if (model().gallery.length === 0) { <p class="text-xs text-muted">No gallery images.</p> }
+              </div>
+            </div>
+
+            <!-- Description paragraphs -->
+            <div class="border-t border-hairline pt-5">
+              <div class="flex items-center justify-between">
+                <span class="lbl">Description paragraphs</span>
+                <button type="button" (click)="addDescription()" class="font-mono text-xs uppercase tracking-[0.12em] text-accent hover:underline">+ Add paragraph</button>
+              </div>
+              <div class="mt-3 space-y-4">
+                @for (para of model().description; track $index; let i = $index) {
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="block"><span class="lbl">Paragraph {{ i + 1 }} (EN)</span>
+                      <textarea [(ngModel)]="model().description[i].en" rows="3" class="inp"></textarea></label>
+                    <label class="block"><span class="lbl">Paragraph {{ i + 1 }} (AR)</span>
+                      <textarea [(ngModel)]="model().description[i].ar" rows="3" dir="rtl" class="inp"></textarea></label>
+                    <button type="button" (click)="removeDescription(i)" class="col-span-2 justify-self-start font-mono text-xs uppercase text-red-600 hover:underline">Remove paragraph</button>
+                  </div>
+                }
+                @if (model().description.length === 0) { <p class="text-xs text-muted">No description paragraphs.</p> }
+              </div>
+            </div>
+
+            <!-- Specs -->
+            <div class="border-t border-hairline pt-5">
+              <div class="flex items-center justify-between">
+                <span class="lbl">Specifications</span>
+                <button type="button" (click)="addSpec()" class="font-mono text-xs uppercase tracking-[0.12em] text-accent hover:underline">+ Add spec</button>
+              </div>
+              <div class="mt-3 space-y-4">
+                @for (spec of model().specs; track $index; let i = $index) {
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="block"><span class="lbl">Label (EN)</span>
+                      <input [(ngModel)]="model().specs[i].label.en" class="inp" /></label>
+                    <label class="block"><span class="lbl">Label (AR)</span>
+                      <input [(ngModel)]="model().specs[i].label.ar" dir="rtl" class="inp" /></label>
+                    <label class="block"><span class="lbl">Value (EN)</span>
+                      <input [(ngModel)]="model().specs[i].value.en" class="inp" /></label>
+                    <label class="block"><span class="lbl">Value (AR)</span>
+                      <input [(ngModel)]="model().specs[i].value.ar" dir="rtl" class="inp" /></label>
+                    <button type="button" (click)="removeSpec(i)" class="col-span-2 justify-self-start font-mono text-xs uppercase text-red-600 hover:underline">Remove spec</button>
+                  </div>
+                }
+                @if (model().specs.length === 0) { <p class="text-xs text-muted">No specs.</p> }
+              </div>
+            </div>
+
+            <!-- Services -->
+            <div class="border-t border-hairline pt-5">
+              <div class="flex items-center justify-between">
+                <span class="lbl">Services</span>
+                <button type="button" (click)="addService()" class="font-mono text-xs uppercase tracking-[0.12em] text-accent hover:underline">+ Add service</button>
+              </div>
+              <div class="mt-3 space-y-4">
+                @for (svc of model().services; track $index; let i = $index) {
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="block"><span class="lbl">Service {{ i + 1 }} (EN)</span>
+                      <input [(ngModel)]="model().services[i].en" class="inp" /></label>
+                    <label class="block"><span class="lbl">Service {{ i + 1 }} (AR)</span>
+                      <input [(ngModel)]="model().services[i].ar" dir="rtl" class="inp" /></label>
+                    <button type="button" (click)="removeService(i)" class="col-span-2 justify-self-start font-mono text-xs uppercase text-red-600 hover:underline">Remove service</button>
+                  </div>
+                }
+                @if (model().services.length === 0) { <p class="text-xs text-muted">No services.</p> }
+              </div>
+            </div>
+
+            <div class="flex items-center gap-6 border-t border-hairline pt-5">
               <label class="flex items-center gap-2 text-sm text-ink">
                 <input type="checkbox" [(ngModel)]="model().featured" /> Featured
               </label>
@@ -169,8 +258,34 @@ export class AdminProjects implements OnInit {
   }
 
   protected openCreate(): void { this.model.set(blank()); this.error.set(null); this.editing.set(true); }
-  protected edit(p: Project): void { this.model.set(structuredClone(p)); this.error.set(null); this.editing.set(true); }
+  protected edit(p: Project): void {
+    // Normalise: older/partial records may lack the rich array fields.
+    const full: Project = {
+      ...blank(),
+      ...structuredClone(p),
+      gallery: structuredClone(p.gallery ?? []),
+      description: structuredClone(p.description ?? []),
+      specs: structuredClone(p.specs ?? []),
+      services: structuredClone(p.services ?? []),
+    };
+    this.model.set(full);
+    this.error.set(null);
+    this.editing.set(true);
+  }
   protected cancel(): void { this.editing.set(false); }
+
+  // Repeating-row editors. New array references so the @for re-renders.
+  protected addGalleryImage(): void { this.model.update((m) => ({ ...m, gallery: [...m.gallery, ''] })); }
+  protected removeGalleryImage(i: number): void { this.model.update((m) => ({ ...m, gallery: m.gallery.filter((_, idx) => idx !== i) })); }
+
+  protected addDescription(): void { this.model.update((m) => ({ ...m, description: [...m.description, { en: '', ar: '' }] })); }
+  protected removeDescription(i: number): void { this.model.update((m) => ({ ...m, description: m.description.filter((_, idx) => idx !== i) })); }
+
+  protected addSpec(): void { this.model.update((m) => ({ ...m, specs: [...m.specs, { label: { en: '', ar: '' }, value: { en: '', ar: '' } }] })); }
+  protected removeSpec(i: number): void { this.model.update((m) => ({ ...m, specs: m.specs.filter((_, idx) => idx !== i) })); }
+
+  protected addService(): void { this.model.update((m) => ({ ...m, services: [...m.services, { en: '', ar: '' }] })); }
+  protected removeService(i: number): void { this.model.update((m) => ({ ...m, services: m.services.filter((_, idx) => idx !== i) })); }
 
   protected save(): void {
     this.saving.set(true);

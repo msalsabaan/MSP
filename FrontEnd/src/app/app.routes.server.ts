@@ -1,12 +1,11 @@
 import { RenderMode, ServerRoute } from '@angular/ssr';
-import { PROJECTS } from './core/data/projects';
 
 export const serverRoutes: ServerRoute[] = [
   {
-    // Prerender a static page for every project slug.
+    // Project detail loads from the API by slug — slugs aren't known at build
+    // time, so render on the client (it fetches in the browser).
     path: 'projects/:slug',
-    renderMode: RenderMode.Prerender,
-    getPrerenderParams: async () => PROJECTS.map((p) => ({ slug: p.slug })),
+    renderMode: RenderMode.Client,
   },
   {
     // Admin CMS + auth: dynamic, auth-gated — client-rendered, never prerendered.

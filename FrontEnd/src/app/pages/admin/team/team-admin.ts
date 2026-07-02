@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../../core/services/admin-api.service';
 import { Button } from '../../../shared/ui/button/button';
+import { ImageUploadField } from '../../../shared/ui/image-upload/image-upload';
 
 interface L { en: string; ar: string; }
 interface TeamMember {
@@ -31,7 +32,7 @@ function blank(): TeamMember {
 @Component({
   selector: 'app-admin-team',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Button],
+  imports: [FormsModule, Button, ImageUploadField],
   template: `
     <header class="flex items-end justify-between">
       <div>
@@ -83,22 +84,11 @@ function blank(): TeamMember {
             <label class="block"><span class="lbl">Bio (AR)</span>
               <textarea [(ngModel)]="model().bio.ar" rows="3" dir="rtl" class="inp"></textarea></label>
 
-            <label class="block"><span class="lbl">Photo (filename/URL)</span>
-              <input [(ngModel)]="model().photo" class="inp" /></label>
+            <label class="block"><span class="lbl">Photo</span>
+              <app-image-upload [(value)]="model().photo" /></label>
 
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block"><span class="lbl">Email</span>
-                <input type="email" [(ngModel)]="model().email" class="inp" /></label>
-              <label class="block"><span class="lbl">Phone</span>
-                <input [(ngModel)]="model().phone" class="inp" /></label>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block"><span class="lbl">LinkedIn</span>
-                <input [(ngModel)]="model().linkedin" class="inp" /></label>
-              <label class="block"><span class="lbl">Sort order</span>
-                <input type="number" [(ngModel)]="model().sortOrder" class="inp" /></label>
-            </div>
+            <label class="block"><span class="lbl">Sort order</span>
+              <input type="number" [(ngModel)]="model().sortOrder" class="inp" /></label>
 
             <div class="flex items-center gap-6">
               <label class="flex items-center gap-2 text-sm text-ink">

@@ -1,8 +1,8 @@
 import { Injectable, computed, inject, signal, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
-import { Observable } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { finalize, map, shareReplay, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { ApiResponse } from '../models/api-response.model';
 import { STORAGE_KEYS } from '../constants/api.constants';
@@ -36,6 +36,9 @@ export class AuthService {
   readonly user = this._user.asReadonly();
   readonly isAuthenticated = computed(() => this._user() !== null);
 
+  /** In-flight refresh, shared so concurrent 401s trigger only one refresh call. */
+  private refresh$: Observable<string> | null = null;
+
   login(email: string, password: string): Observable<AuthUser> {
     return this.api
       .post<ApiResponse<LoginResult>>('auth/login', { email, password })
@@ -44,6 +47,45 @@ export class AuthService {
         tap((result) => this.persist(result)),
         map((result) => result.user),
       );
+  }
+
+  /** Current access token from storage (browser only). */
+  get accessToken(): string | null {
+    if (!this.isBrowser) return null;
+    try {
+      return localStorage.getItem(STORAGE_KEYS.token);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Exchanges the stored refresh token for a fresh access token, persisting the
+   * new tokens. Deduped: concurrent callers share one in-flight request. Emits
+   * the new access token, or errors if no/invalid refresh token.
+   */
+  refreshTokens(): Observable<string> {
+    if (this.refresh$) return this.refresh$;
+
+    const refreshToken = this.isBrowser
+      ? localStorage.getItem(STORAGE_KEYS.refresh)
+      : null;
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token available'));
+    }
+
+    this.refresh$ = this.api
+      .post<ApiResponse<LoginResult>>('auth/refresh', { refreshToken })
+      .pipe(
+        map((res) => res.data),
+        tap((result) => this.persist(result)),
+        map((result) => result.accessToken),
+        finalize(() => {
+          this.refresh$ = null;
+        }),
+        shareReplay(1),
+      );
+    return this.refresh$;
   }
 
   logout(): void {

@@ -1,7 +1,9 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Container } from '../../../../shared/ui/container/container';
 import { TranslationService } from '../../../../core/services/translation.service';
+import { PublicContentService } from '../../../../core/services/public-content.service';
+import { CompanyInfo } from '../../../../core/models/content.model';
 
 interface NavLink {
   readonly path: string;
@@ -24,7 +26,7 @@ interface NavLink {
               MSP
             </a>
             <p class="mt-4 max-w-xs text-sm leading-relaxed text-muted">
-              {{ i18n.pick(tagline) }}
+              {{ i18n.pick(taglineValue()) }}
             </p>
             <p class="mt-6 font-mono text-xs uppercase tracking-[0.15em] text-muted">
               {{ i18n.pick(city) }}
@@ -55,10 +57,10 @@ interface NavLink {
             </p>
             <ul class="mt-5 space-y-3 text-sm text-muted">
               <li>
-                <a href="mailto:hello@msp.sa" class="transition-colors hover:text-ink">hello&#64;msp.sa</a>
+                <a [href]="'mailto:' + emailValue()" class="transition-colors hover:text-ink">{{ emailValue() }}</a>
               </li>
-              <li dir="ltr">+966 11 000 0000</li>
-              <li>{{ i18n.pick(address) }}</li>
+              <li dir="ltr">{{ phoneValue() }}</li>
+              <li>{{ i18n.pick(addressValue()) }}</li>
             </ul>
           </div>
         </div>
@@ -75,7 +77,31 @@ interface NavLink {
 })
 export class Footer {
   protected readonly i18n = inject(TranslationService);
+  private readonly content = inject(PublicContentService);
   protected readonly year = 2026;
+
+  /** Company/contact info from the API; falls back to the static defaults below. */
+  private readonly cfg = signal<CompanyInfo>({});
+
+  protected readonly taglineValue = computed(() => this.cfg().tagline ?? this.tagline);
+  protected readonly emailValue = computed(() => this.cfg().email || 'info@msp.sa');
+  protected readonly phoneValue = computed(() => this.cfg().phone || '+966 11 000 0000');
+  protected readonly addressValue = computed(() => {
+    const c = this.cfg();
+    if (c.addressEn || c.addressAr) {
+      return { en: c.addressEn ?? '', ar: c.addressAr ?? c.addressEn ?? '' };
+    }
+    return this.address;
+  });
+
+  constructor() {
+    afterNextRender(() => {
+      this.content.settings().subscribe({
+        next: (c) => this.cfg.set(c ?? {}),
+        error: () => {},
+      });
+    });
+  }
 
   protected readonly tagline = {
     en: 'An architecture & engineering consultancy designing buildings, infrastructure, and cities that endure.',

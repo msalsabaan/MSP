@@ -1,0 +1,12 @@
+# Automatic HTTPS for www.msp.sa (and redirect from the bare domain).
+# Caddy obtains and renews the Let's Encrypt certificate on its own — no manual steps.
+
+www.msp.sa {
+	encode gzip
+	reverse_proxy frontend:80
+}
+
+# Send anyone who visits https://msp.sa to the www version.
+msp.sa {
+	redir https://www.msp.sa{uri} permanent
+}

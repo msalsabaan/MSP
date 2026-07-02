@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@ang
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../../core/services/admin-api.service';
 import { Button } from '../../../shared/ui/button/button';
+import { ImageUploadField } from '../../../shared/ui/image-upload/image-upload';
 
 interface L { en: string; ar: string; }
 interface BlogPost {
@@ -32,7 +33,7 @@ function blank(): BlogPost {
 @Component({
   selector: 'app-admin-blog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Button],
+  imports: [FormsModule, Button, ImageUploadField],
   template: `
     <header class="flex items-end justify-between">
       <div>
@@ -89,8 +90,8 @@ function blank(): BlogPost {
                 <input [(ngModel)]="model().author" class="inp" /></label>
             </div>
 
-            <label class="block"><span class="lbl">Cover (filename/URL)</span>
-              <input [(ngModel)]="model().cover" class="inp" /></label>
+            <label class="block"><span class="lbl">Cover</span>
+              <app-image-upload [(value)]="model().cover" /></label>
 
             <label class="block"><span class="lbl">Excerpt (EN)</span>
               <textarea [(ngModel)]="model().excerpt.en" rows="2" class="inp"></textarea></label>

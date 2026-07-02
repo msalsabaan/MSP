@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-msp}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-msp_db}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    # NOTE: no host "ports:" mapping — the database is reachable only by the
+    # backend on the internal Docker network, never from the public internet.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-msp} -d ${DB_NAME:-msp_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./BackEnd
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: api
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-msp}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-msp_db}
+      DB_SYNCHRONIZE: "true"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: 7d
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@msp.sa}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      UPLOAD_DIR: uploads
+      MAX_UPLOAD_MB: 5
+    volumes:
+      - uploads_data:/app/uploads
+    # No host "ports:" mapping — reached only via nginx/caddy on the internal network.
+
+  # Static Angular site served by nginx, which reverse-proxies /api -> backend.
+  frontend:
+    build: ./FrontEnd
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # No host "ports:" mapping — Caddy terminates HTTPS and proxies to it.
+
+  # Caddy = public entrypoint. Automatically obtains & renews a free Let's Encrypt
+  # HTTPS certificate for the domain, and forwards traffic to the frontend.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  db_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:
