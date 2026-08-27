@@ -26,6 +26,20 @@ describe('Header mobile navigation', () => {
     }).compileComponents();
   });
 
+  it('renders the official MSP logo with the consultancy label', () => {
+    const fixture = TestBed.createComponent(Header);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    const brand = element.querySelector<HTMLAnchorElement>('a[aria-label="MSP Engineering Consultancy"]');
+    const logo = brand?.querySelector<HTMLImageElement>('img');
+
+    expect(brand).toBeTruthy();
+    expect(brand?.getAttribute('aria-label')).toBe('MSP Engineering Consultancy');
+    expect(logo?.getAttribute('src')).toBe('/images/msp-logo.png');
+    expect(logo?.getAttribute('alt')).toBe('MSP Designs');
+  });
+
   it('opens an accessible menu containing every public navigation link', () => {
     const fixture = TestBed.createComponent(Header);
     fixture.detectChanges();
