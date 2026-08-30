@@ -40,6 +40,19 @@ describe('Header mobile navigation', () => {
     expect(logo?.getAttribute('alt')).toBe('MSP Designs');
   });
 
+  it('uses clear client-facing labels in the primary navigation', () => {
+    const fixture = TestBed.createComponent(Header);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    const labels = Array.from(
+      element.querySelectorAll<HTMLAnchorElement>('header nav > ul a'),
+      (link) => link.textContent?.trim(),
+    );
+
+    expect(labels).toEqual(['About', 'Services', 'Projects', 'Team', 'Insights', 'Contact']);
+  });
+
   it('opens an accessible menu containing every public navigation link', () => {
     const fixture = TestBed.createComponent(Header);
     fixture.detectChanges();
