@@ -1,5 +1,5 @@
 <#
-  Consistent backup of the office vendor service: database dump + pending documents + config.
+  ConsistentDDD backup of the office vendor service: database dump + pending documents + config.
   Run from the office host (Task Scheduler, daily, as the service account). Stop nothing.
   The approved archive (\Server\...\الموردون المعتمدون) is backed up separately by the office.
   Usage: powershell -File backup-vendor-service.ps1 -Root D:\MSP-VendorService -Dest \Server\Backups\msp-vendor-service
