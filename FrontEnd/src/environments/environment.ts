@@ -7,4 +7,6 @@ export const environment = {
    * the privacy policy mentions analytics.
    */
   ga4MeasurementId: '',
+  /** The OFFICE vendor service (vendor accounts, applications, documents). Never the website API. */
+  vendorApiUrl: 'http://localhost:3100/api',
 };

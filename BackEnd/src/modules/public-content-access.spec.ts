@@ -2,9 +2,8 @@
  * Public website endpoints must only ever return published / active content
  * to anonymous visitors — `includeDrafts`, `includeInactive` and direct
  * slug/id lookups included — while signed-in content staff keep their admin
- * preview. Runs the real global guards and JWT strategy over HTTP (built-in
- * fetch against a listening server) with an in-memory repository, so it needs
- * no database and no extra test dependencies.
+ * preview. Runs the real global guards and JWT strategy over HTTP against an
+ * in-memory repository (no database needed).
  */
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,32 +12,39 @@ import { JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import request from 'supertest';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Role } from '../common/enums/role.enum';
 import { JwtStrategy } from './auth/strategies/jwt.strategy';
+import { StaffTokenService } from './auth/staff-token.service';
 import { BlogController } from './blog/blog.controller';
 import { BlogService } from './blog/blog.service';
 import { BlogPost } from './blog/entities/blog-post.entity';
 import { Project } from './projects/entities/project.entity';
 import { ProjectsController } from './projects/projects.controller';
 import { ProjectsService } from './projects/projects.service';
+import { Partner } from './partners/entities/partner.entity';
 import { PartnersService } from './partners/partners.service';
+import { Service } from './services/entities/service.entity';
 import { ServicesService } from './services/services.service';
+import { TeamMember } from './team/entities/team-member.entity';
 import { TeamService } from './team/team.service';
+import { Testimonial } from './testimonials/entities/testimonial.entity';
 import { TestimonialsService } from './testimonials/testimonials.service';
 
 const SECRET = 'test-secret';
 type Row = Record<string, unknown>;
 
+/** Visibility columns the services filter on. */
 const VISIBILITY = { status: 'published', published: true, active: true } as const;
 const isVisible = (row: Row) =>
   Object.entries(VISIBILITY).every(([k, v]) => !(k in row) || row[k] === v);
 
 /**
  * Minimal TypeORM repository stand-in: `findOne({ where })` matches every
- * key; the list query builder applies the visibility filter exactly when the
- * service adds a status/published/active condition.
+ * key, and the list query builder applies the visibility filter exactly when
+ * the service adds a status/published/active condition.
  */
 function fakeRepo(rows: Row[]) {
   return {
@@ -71,14 +77,9 @@ const DRAFT_ID = '22222222-2222-4222-8222-222222222222';
 
 describe('Public content access (HTTP, real guards)', () => {
   let app: INestApplication;
-  let base: string;
-  let tokens: Record<'editor' | 'contentManager' | 'superAdmin' | 'otherRole' | 'expired', string>;
-
-  const get = async (path: string, token?: string) => {
-    const res = await fetch(`${base}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-    const body = (await res.json()) as { data?: Row[] };
-    return { status: res.status, slugs: (body.data ?? []).map((r) => r.slug) };
-  };
+  let tokens: Record<'editor' | 'contentManager' | 'superAdmin' | 'vendorReviewer' | 'expired', string>;
+  const http = () => request(app.getHttpServer());
+  const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 
   const projects: Row[] = [
     { id: PUB_ID, slug: 'madinah-hotel', status: 'published' },
@@ -90,6 +91,8 @@ describe('Public content access (HTTP, real guards)', () => {
   ];
 
   beforeAll(async () => {
+    for (const k of ['JWT_PRIVATE_KEY', 'JWT_PUBLIC_KEY', 'JWT_ISSUER', 'JWT_AUDIENCE']) delete process.env[k];
+
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule],
       controllers: [ProjectsController, BlogController],
@@ -105,19 +108,26 @@ describe('Public content access (HTTP, real guards)', () => {
       ],
     }).compile();
     app = moduleRef.createNestApplication();
-    await app.listen(0, '127.0.0.1');
-    base = (await app.getUrl()).replace('[::1]', '127.0.0.1');
+    await app.init();
 
-    // Same signing as AuthService: HS256 with jwt.secret.
-    const jwt = new JwtService({ secret: SECRET });
-    const sign = (role: string, expiresIn = '15m') =>
-      jwt.signAsync({ sub: 'u1', email: 'staff@msp.sa', role }, { expiresIn });
+    const signer = new StaffTokenService(new JwtService({}), {
+      hsSecret: SECRET,
+      issuer: 'msp-website',
+      audience: ['msp-admin', 'vendor-service'],
+      expiresIn: '15m',
+    });
+    const sign = (role: string) => signer.signAccess({ sub: 'u1', email: 'staff@msp.sa', role });
     tokens = {
       editor: await sign(Role.Editor),
       contentManager: await sign(Role.ContentManager),
       superAdmin: await sign(Role.SuperAdmin),
-      otherRole: await sign('VIEWER'),
-      expired: await sign(Role.Editor, '-1s'),
+      vendorReviewer: await sign(Role.VendorReviewer),
+      expired: await new StaffTokenService(new JwtService({}), {
+        hsSecret: SECRET,
+        issuer: 'msp-website',
+        audience: ['msp-admin', 'vendor-service'],
+        expiresIn: '-1s',
+      }).signAccess({ sub: 'u1', email: 'staff@msp.sa', role: Role.Editor }),
     };
   });
 
@@ -127,57 +137,62 @@ describe('Public content access (HTTP, real guards)', () => {
     ['projects', 'madinah-hotel', 'unannounced-tower'],
     ['blog', 'madinah-hotel-hospitality', 'draft-article'],
   ])('/%s', (path, publishedSlug, draftSlug) => {
+    const slugs = (res: request.Response) => (res.body.data as Row[]).map((r) => r.slug);
+
     it('lists only published items to anonymous visitors', async () => {
-      expect(await get(`/${path}`)).toEqual({ status: 200, slugs: [publishedSlug] });
+      const res = await http().get(`/${path}`).expect(200);
+      expect(slugs(res)).toEqual([publishedSlug]);
     });
 
     it('ignores includeDrafts=true from anonymous visitors', async () => {
-      expect(await get(`/${path}?includeDrafts=true`)).toEqual({ status: 200, slugs: [publishedSlug] });
+      const res = await http().get(`/${path}?includeDrafts=true`).expect(200);
+      expect(slugs(res)).toEqual([publishedSlug]);
     });
 
     it('never shows drafts to an invalid or expired token: 401 when drafts were asked for, so the admin refreshes', async () => {
-      expect((await get(`/${path}?includeDrafts=true`, 'not-a-jwt')).status).toBe(401);
-      expect((await get(`/${path}?includeDrafts=true`, tokens.expired)).status).toBe(401);
+      await http().get(`/${path}?includeDrafts=true`).set(bearer('not-a-jwt')).expect(401);
+      await http().get(`/${path}?includeDrafts=true`).set(bearer(tokens.expired)).expect(401);
     });
 
     it('serves published content normally to a stale token that asks for nothing extra', async () => {
-      expect(await get(`/${path}`, tokens.expired)).toEqual({ status: 200, slugs: [publishedSlug] });
-      expect((await get(`/${path}/slug/${draftSlug}`, tokens.expired)).status).toBe(404);
+      const res = await http().get(`/${path}`).set(bearer(tokens.expired)).expect(200);
+      expect(slugs(res)).toEqual([publishedSlug]);
+      await http().get(`/${path}/slug/${draftSlug}`).set(bearer(tokens.expired)).expect(404);
     });
 
-    it('ignores includeDrafts=true for a signed-in user without a content role', async () => {
-      expect(await get(`/${path}?includeDrafts=true`, tokens.otherRole)).toEqual({ status: 200, slugs: [publishedSlug] });
+    it('ignores includeDrafts=true for staff without a content role', async () => {
+      const res = await http().get(`/${path}?includeDrafts=true`).set(bearer(tokens.vendorReviewer)).expect(200);
+      expect(slugs(res)).toEqual([publishedSlug]);
     });
 
     it('serves a published item by slug and by id', async () => {
-      expect((await get(`/${path}/slug/${publishedSlug}`)).status).toBe(200);
-      expect((await get(`/${path}/${PUB_ID}`)).status).toBe(200);
+      await http().get(`/${path}/slug/${publishedSlug}`).expect(200);
+      await http().get(`/${path}/${PUB_ID}`).expect(200);
     });
 
     it('returns 404 for a draft by slug or id to anonymous visitors', async () => {
-      expect((await get(`/${path}/slug/${draftSlug}`)).status).toBe(404);
-      expect((await get(`/${path}/${DRAFT_ID}`)).status).toBe(404);
+      await http().get(`/${path}/slug/${draftSlug}`).expect(404);
+      await http().get(`/${path}/${DRAFT_ID}`).expect(404);
     });
 
     it.each(['editor', 'contentManager', 'superAdmin'] as const)(
       'lets a signed-in %s list and open drafts (admin preview)',
       async (who) => {
-        const list = await get(`/${path}?includeDrafts=true`, tokens[who]);
-        expect(list.status).toBe(200);
-        expect([...list.slugs].sort()).toEqual([draftSlug, publishedSlug].sort());
-        expect((await get(`/${path}/slug/${draftSlug}`, tokens[who])).status).toBe(200);
-        expect((await get(`/${path}/${DRAFT_ID}`, tokens[who])).status).toBe(200);
+        const res = await http().get(`/${path}?includeDrafts=true`).set(bearer(tokens[who])).expect(200);
+        expect(slugs(res).sort()).toEqual([draftSlug, publishedSlug].sort());
+        await http().get(`/${path}/slug/${draftSlug}`).set(bearer(tokens[who])).expect(200);
+        await http().get(`/${path}/${DRAFT_ID}`).set(bearer(tokens[who])).expect(200);
       },
     );
 
     it('still shows staff only published items unless they ask for drafts', async () => {
-      expect(await get(`/${path}`, tokens.editor)).toEqual({ status: 200, slugs: [publishedSlug] });
+      const res = await http().get(`/${path}`).set(bearer(tokens.editor)).expect(200);
+      expect(slugs(res)).toEqual([publishedSlug]);
     });
   });
 
   it('keeps protected routes protected (a write without a token is 401)', async () => {
-    const res = await fetch(`${base}/projects`, { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } });
-    expect(res.status).toBe(401);
+    await http().post('/projects').send({}).expect(401);
   });
 });
 

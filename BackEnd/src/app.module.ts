@@ -40,6 +40,8 @@ import { UsersModule } from './modules/users/users.module';
     ContactModule,
     SettingsModule,
     UploadsModule,
+    // Vendor qualification is NOT here: it runs as the office vendor service
+    // (src/vendor-service.main.ts) so vendor data never lives on the website host.
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

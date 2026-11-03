@@ -41,6 +41,23 @@ export const serverRoutes: ServerRoute[] = [
     }),
   ),
   {
+    // Vendor portal: personal, token-driven — client-rendered, never prerendered.
+    path: 'vendors',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'ar/vendors',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'vendors/**',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'ar/vendors/**',
+    renderMode: RenderMode.Client,
+  },
+  {
     // Admin CMS + auth: dynamic, auth-gated — client-rendered, never prerendered.
     path: 'admin',
     renderMode: RenderMode.Client,

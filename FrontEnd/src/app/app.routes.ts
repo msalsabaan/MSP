@@ -78,6 +78,14 @@ const publicPages: Routes = [
     loadComponent: () =>
       import('./pages/contact/contact-page').then((m) => m.ContactPage),
   },
+  // Vendor portal — talks to the OFFICE vendor service, never the website API.
+  { path: 'vendors', loadComponent: () => import('./pages/vendors/vendor-auth-pages').then((m) => m.VendorLoginPage) },
+  { path: 'vendors/register', loadComponent: () => import('./pages/vendors/vendor-auth-pages').then((m) => m.VendorRegisterPage) },
+  { path: 'vendors/verify/:token', loadComponent: () => import('./pages/vendors/vendor-auth-pages').then((m) => m.VendorVerifyPage) },
+  { path: 'vendors/forgot-password', loadComponent: () => import('./pages/vendors/vendor-auth-pages').then((m) => m.VendorForgotPage) },
+  { path: 'vendors/reset-password/:token', loadComponent: () => import('./pages/vendors/vendor-auth-pages').then((m) => m.VendorResetPage) },
+  { path: 'vendors/login', pathMatch: 'full', redirectTo: 'vendors' },
+  { path: 'vendors/dashboard', loadComponent: () => import('./pages/vendors/vendor-dashboard-page').then((m) => m.VendorDashboardPage) },
   {
     path: 'privacy',
     data: { doc: 'privacy' },
@@ -127,6 +135,18 @@ export const routes: Routes = [
         path: 'projects',
         loadComponent: () =>
           import('./pages/admin/projects/projects-admin').then((m) => m.AdminProjects),
+      },
+      {
+        path: 'vendors',
+        canActivate: [roleGuard(Role.SuperAdmin, Role.VendorReviewer)],
+        loadComponent: () =>
+          import('./pages/admin/vendors/vendors-admin').then((m) => m.AdminVendors),
+      },
+      {
+        path: 'vendors/:id',
+        canActivate: [roleGuard(Role.SuperAdmin, Role.VendorReviewer)],
+        loadComponent: () =>
+          import('./pages/admin/vendors/vendor-detail-admin').then((m) => m.AdminVendorDetail),
       },
       {
         path: 'messages',

@@ -8,7 +8,7 @@ const isProduction = (process.env.NODE_ENV ?? 'development') === 'production';
  * production a missing value STOPS the boot, rather than silently running on a
  * constant that anyone can read here and use to sign tokens or sign in.
  */
-function secret(name: string, devDefault: string): string {
+export function secret(name: string, devDefault: string): string {
   const value = process.env[name];
   if (value) return value;
   if (isProduction) {
@@ -32,7 +32,13 @@ export default () => ({
     username: process.env.DB_USERNAME ?? 'msp',
     password: secret('DB_PASSWORD', 'msp_password'),
     name: process.env.DB_NAME ?? 'msp_db',
-    synchronize: (process.env.DB_SYNCHRONIZE ?? 'true') === 'true',
+    // Postgres schema. Tests and migration dry-runs use an isolated schema in
+    // the same database, so they never need CREATEDB rights.
+    schema: process.env.DB_SCHEMA ?? 'public',
+    // Schema changes go through migrations (src/database/migrations). Auto-sync
+    // is an explicit opt-in for local development only — never in production,
+    // where it can silently drop columns and data.
+    synchronize: process.env.DB_SYNCHRONIZE === 'true',
   },
   jwt: {
     // Sign both tokens with a per-deployment secret. The old fallback let
@@ -65,5 +71,21 @@ export default () => ({
   upload: {
     dir: process.env.UPLOAD_DIR ?? 'uploads',
     maxMb: parseInt(process.env.MAX_UPLOAD_MB ?? '5', 10),
+  },
+  /** Public site origin used in emails (review links, completion links). */
+  publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:4200',
+  /**
+   * Vendor (office service) sessions. The signing secret (VENDOR_JWT_SECRET) is
+   * read by VendorsModule only, so the website — which never loads that module —
+   * boots without it.
+   */
+  vendorAuth: {
+    tokenTtl: process.env.VENDOR_TOKEN_TTL ?? '12h',
+  },
+  vendorDocs: {
+    // Pending vendor documents. NOT under uploads/ and never served statically.
+    dir: process.env.VENDOR_DOCS_DIR ?? 'vendor-docs',
+    // Review-team inbox for new/resubmitted applications; empty = no mail.
+    reviewInbox: process.env.VENDOR_REVIEW_INBOX ?? '',
   },
 });

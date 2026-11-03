@@ -9,6 +9,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { vendorInterceptor } from './core/interceptors/vendor.interceptor';
 import { authRefreshInterceptor } from './core/interceptors/auth-refresh.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { loadingInterceptor } from './core/interceptors/loading.interceptor';
@@ -29,12 +30,10 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(withEventReplay(), withNoHttpTransferCache()),
     provideHttpClient(
       withFetch(),
-      withInterceptors([
-        authInterceptor,
+      withInterceptors([authInterceptor,
         authRefreshInterceptor,
         errorInterceptor,
-        loadingInterceptor,
-      ]),
+        loadingInterceptor, vendorInterceptor]),
     ),
   ],
 };

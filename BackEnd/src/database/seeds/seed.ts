@@ -12,6 +12,7 @@ import { Setting } from '../../modules/settings/entities/setting.entity';
 import { TeamMember } from '../../modules/team/entities/team-member.entity';
 import { Testimonial } from '../../modules/testimonials/entities/testimonial.entity';
 import { User } from '../../modules/users/entities/user.entity';
+import { seedVendorCategories } from './vendor-categories.seed';
 
 const L = (en: string, ar: string) => ({ en, ar });
 
@@ -34,7 +35,10 @@ async function run() {
   const cfg = configuration();
   const ds = new DataSource(dataSourceOptions);
   await ds.initialize();
-  console.log('Connected. Seeding…');
+  // Apply pending migrations before writing sample rows (the Nest app does the
+  // same at startup).
+  await ds.runMigrations();
+  console.log('Connected, schema up to date. Seeding…');
 
   // --- Admin user ---
   const userRepo = ds.getRepository(User);
@@ -340,6 +344,10 @@ For MSP, designing hospitality in Madinah means listening to the place before sh
     await upsert(ds, Setting, { key }, { key, value } as Partial<Setting>);
   }
   console.log(`  ✓ ${Object.keys(settings).length} settings`);
+
+  // --- Vendor categories (provisional, editable in the admin) ---
+  await seedVendorCategories(ds);
+  console.log('  ✓ vendor categories + document requirements');
 
   // touch ContactMessage repo so the table is verified to exist
   await ds.getRepository(ContactMessage).count();

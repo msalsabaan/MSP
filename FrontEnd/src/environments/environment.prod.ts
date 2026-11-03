@@ -7,4 +7,6 @@ export const environment = {
    * the privacy policy mentions analytics.
    */
   ga4MeasurementId: '',
+  /** Reached through the Cloudflare Tunnel; the host name is confirmed before deployment. */
+  vendorApiUrl: 'https://vendors.msp.sa/api',
 };

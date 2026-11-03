@@ -51,8 +51,7 @@ describe('ContactPage', () => {
     expect(element.textContent).toContain('+966112000087');
     expect(element.textContent).toContain('+966570327777');
     expect(element.textContent).toContain('+201068017313');
-    expect(element.textContent).toContain('Established');
-    expect(element.textContent).toContain('2010');
+    expect(element.textContent).not.toContain('Established');
     expect(element.querySelector('a[href="mailto:info@msp.sa"]')).toBeTruthy();
     expect(element.querySelector('a[href="tel:+966112000087"]')).toBeTruthy();
     expect(element.querySelector('a[href="https://wa.me/966570327777"]')).toBeTruthy();
