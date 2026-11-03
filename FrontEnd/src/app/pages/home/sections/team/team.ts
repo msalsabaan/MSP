@@ -3,9 +3,9 @@ import {
   inject,
   signal,
   computed,
-  afterNextRender,
   ChangeDetectionStrategy,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Section } from '../../../../shared/ui/section/section';
 import { Container } from '../../../../shared/ui/container/container';
 import { SectionHeading } from '../../../../shared/ui/section-heading/section-heading';
@@ -14,6 +14,8 @@ import { AssetPipe } from '../../../../shared/pipes/asset.pipe';
 import { TranslationService } from '../../../../core/services/translation.service';
 import { PublicContentService } from '../../../../core/services/public-content.service';
 import { TeamMember } from '../../../../core/models/content.model';
+import { LocPipe } from '../../../../shared/pipes/loc.pipe';
+import { SrcsetPipe } from '../../../../shared/pipes/srcset.pipe';
 
 interface L {
   en: string;
@@ -32,7 +34,7 @@ interface Member {
 @Component({
   selector: 'app-team',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Section, Container, SectionHeading, ScrollReveal, AssetPipe],
+  imports: [RouterLink, Section, Container, SectionHeading, ScrollReveal, AssetPipe, LocPipe, SrcsetPipe],
   template: `
     <app-section tone="surface">
       <app-container>
@@ -60,7 +62,11 @@ interface Member {
               <div appScrollReveal revealType="line" class="aspect-[4/5] overflow-hidden bg-hairline/40">
                 @if (member.image) {
                   <img
+                    sizes="(min-width: 1024px) 23vw, (min-width: 640px) 46vw, 92vw"
+                    [attr.srcset]="member.image | srcset"
                     [src]="member.image | asset"
+                    width="800"
+                    height="1000"
                     [alt]="member.name"
                     loading="lazy"
                     decoding="async"
@@ -90,6 +96,22 @@ interface Member {
             {{ i18n.pick(t.empty) }}
           </p>
         }
+
+        @if (members().length) {
+          <div class="mt-14 border-t border-hairline pt-8">
+            <a
+              [routerLink]="'/team' | loc"
+              class="group inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-ink transition-colors hover:text-accent"
+            >
+              {{ i18n.pick(t.all) }}
+              <span
+                class="dir-flip text-accent transition-transform duration-300 group-hover:translate-x-1 rtl:group-hover:-translate-x-1"
+                aria-hidden="true"
+                >&rarr;</span
+              >
+            </a>
+          </div>
+        }
       </app-container>
     </app-section>
   `,
@@ -110,24 +132,23 @@ export class Team {
   );
 
   constructor() {
-    afterNextRender(() => {
-      this.content.team().subscribe({
-        next: (list) => {
-          this.fetched.set(list.map(toMember));
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.content.team().subscribe({
+      next: (list) => {
+        this.fetched.set(list.map(toMember));
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
     });
   }
 
   protected readonly t = {
-    eyebrow: { en: 'Studio', ar: 'الفريق' },
-    title: { en: 'A senior team, by design.', ar: 'نخبةٌ من الخبراء، باختيارٍ دقيق.' },
+    eyebrow: { en: 'Team', ar: 'الفريق' },
+    title: { en: 'Collective expertise.', ar: 'خبرة جماعية.' },
     intro: {
-      en: 'Principals lead every commission — supported by a tight group of architects and engineers.',
-      ar: 'يقود الشركاءُ كلَّ مشروعٍ بأنفسهم، تسندهم نخبةٌ من المعماريين والمهندسين.',
+      en: 'Architects and engineers of different nationalities, backgrounds, and disciplines, working to a shared method and common values.',
+      ar: 'معماريون ومهندسون من جنسيات وخلفيات وتخصصات متعددة، تجمعهم منهجية عمل واحدة وقيم مشتركة.',
     },
+    all: { en: 'Meet the full team', ar: 'تعرّف على الفريق كاملاً' },
     placeholder: { en: 'Portrait placeholder', ar: 'صورة افتراضية' },
     empty: { en: 'Team members will appear here.', ar: 'سيظهر أعضاء الفريق هنا.' },
   };

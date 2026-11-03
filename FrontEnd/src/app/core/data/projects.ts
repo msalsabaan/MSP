@@ -24,7 +24,14 @@ export interface Project {
   slug: string;
   no: string;
   title: L;
+  /** Legacy single category. Kept as the fallback sector for older records. */
   typology: Typology;
+  /** Axis 1 — design fields, the works page's top filter row. */
+  designCategories?: readonly Typology[];
+  /** Axis 2 — sectors, the works page's second filter row. */
+  sectors?: readonly Typology[];
+  /** Axis 3 — the scope MSP carried. Shown on the project page, not filtered. */
+  disciplines?: readonly Typology[];
   location: L;
   year: string;
   cover: string;
@@ -32,6 +39,7 @@ export interface Project {
   summary: L;
   description: readonly L[];
   specs: readonly ProjectSpec[];
+  /** Legacy free-text scope list, superseded by `disciplines`. */
   services: readonly L[];
   /** Highlighted on the home page. */
   featured?: boolean;
@@ -45,16 +53,6 @@ const T = {
   commercial: { key: 'commercial', en: 'Commercial', ar: 'تجاري' },
   civic: { key: 'civic', en: 'Civic', ar: 'مبنى عام' },
 } as const;
-
-/** Filter chips for the Works index, in display order. */
-export const TYPOLOGIES: readonly Typology[] = [
-  T.cultural,
-  T.mixed,
-  T.civic,
-  T.commercial,
-  T.masterplan,
-  T.sports,
-];
 
 const SPEC_LABELS = {
   client: { en: 'Client', ar: 'العميل' },
@@ -98,7 +96,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Najd Development Authority', ar: 'هيئة تطوير نجد' } },
-      { label: SPEC_LABELS.area, value: { en: '24,000 m²', ar: '٢٤٬٠٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '24,000 m²', ar: '24٬000 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.completed },
       { label: SPEC_LABELS.role, value: ROLE_FULL },
     ],
@@ -134,7 +132,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Marsa Holding', ar: 'مرسى القابضة' } },
-      { label: SPEC_LABELS.area, value: { en: '78,000 m²', ar: '٧٨٬٠٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '78,000 m²', ar: '78٬000 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.construction },
       { label: SPEC_LABELS.role, value: ROLE_FULL },
     ],
@@ -170,7 +168,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Qiddiya Investment Company', ar: 'شركة القدية للاستثمار' } },
-      { label: SPEC_LABELS.area, value: { en: '12,500 m²', ar: '١٢٬٥٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '12,500 m²', ar: '12٬500 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.completed },
       { label: SPEC_LABELS.role, value: { en: 'Architecture · Structure', ar: 'عمارة · إنشاءات' } },
     ],
@@ -205,7 +203,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Diriyah Gate Development', ar: 'تطوير بوابة الدرعية' } },
-      { label: SPEC_LABELS.area, value: { en: '140,000 m²', ar: '١٤٠٬٠٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '140,000 m²', ar: '140٬000 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.design },
       { label: SPEC_LABELS.role, value: { en: 'Masterplanning · Architecture', ar: 'تخطيط شامل · عمارة' } },
     ],
@@ -239,7 +237,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Confidential', ar: 'سرّي' } },
-      { label: SPEC_LABELS.area, value: { en: '46,000 m²', ar: '٤٦٬٠٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '46,000 m²', ar: '46٬000 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.completed },
       { label: SPEC_LABELS.role, value: { en: 'Architecture · MEP', ar: 'عمارة · كهروميكانيكا' } },
     ],
@@ -273,7 +271,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Red Sea Global', ar: 'البحر الأحمر العالمية' } },
-      { label: SPEC_LABELS.area, value: { en: '3,200 m²', ar: '٣٬٢٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '3,200 m²', ar: '3٬200 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.construction },
       { label: SPEC_LABELS.role, value: ROLE_FULL },
     ],
@@ -308,7 +306,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'King Salman Park Foundation', ar: 'مؤسسة منتزه الملك سلمان' } },
-      { label: SPEC_LABELS.area, value: { en: '9,800 m²', ar: '٩٬٨٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '9,800 m²', ar: '9٬800 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.construction },
       { label: SPEC_LABELS.role, value: { en: 'Architecture · Structure', ar: 'عمارة · إنشاءات' } },
     ],
@@ -342,7 +340,7 @@ export const PROJECTS: readonly Project[] = [
     ],
     specs: [
       { label: SPEC_LABELS.client, value: { en: 'Olaya Real Estate', ar: 'العليا العقارية' } },
-      { label: SPEC_LABELS.area, value: { en: '61,000 m²', ar: '٦١٬٠٠٠ م²' } },
+      { label: SPEC_LABELS.area, value: { en: '61,000 m²', ar: '61٬000 م²' } },
       { label: SPEC_LABELS.status, value: STATUS.completed },
       { label: SPEC_LABELS.role, value: { en: 'Architecture · PM', ar: 'عمارة · إدارة مشاريع' } },
     ],

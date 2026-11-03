@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  afterNextRender,
   inject,
   signal,
 } from '@angular/core';
@@ -12,12 +11,13 @@ import { PublicContentService } from '../../core/services/public-content.service
 import { SeoService } from '../../core/services/seo.service';
 import { TranslationService } from '../../core/services/translation.service';
 import { TeamMember } from '../../core/models/content.model';
+import { SrcsetPipe } from '../../shared/pipes/srcset.pipe';
 
 /** Public team index backed exclusively by active records from the content API. */
 @Component({
   selector: 'app-team-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Container, ScrollReveal, AssetPipe],
+  imports: [Container, ScrollReveal, AssetPipe, SrcsetPipe],
   template: `
     <section class="border-b border-hairline bg-bg pt-16 pb-12 sm:pt-20">
       <app-container>
@@ -55,7 +55,11 @@ import { TeamMember } from '../../core/models/content.model';
                 <div class="aspect-[4/5] overflow-hidden bg-hairline/40">
                   @if (member.photo) {
                     <img
+                      sizes="(min-width: 1024px) 23vw, (min-width: 640px) 46vw, 92vw"
+                      [attr.srcset]="member.photo | srcset"
                       [src]="member.photo | asset"
+                      width="800"
+                      height="1000"
                       [alt]="member.name"
                       loading="lazy"
                       decoding="async"
@@ -103,10 +107,10 @@ export class TeamPage {
 
   protected readonly t = {
     eyebrow: { en: 'Studio', ar: 'الفريق' },
-    title: { en: 'The people behind the work.', ar: 'الفريقُ الذي يقف خلف أعمالنا.' },
+    title: { en: 'The people behind the work.', ar: 'الفريق الذي يقف خلف أعمالنا.' },
     intro: {
-      en: 'A focused team of architects, engineers, and specialists working as one practice.',
-      ar: 'فريقٌ متكامل من المعماريين والمهندسين والمتخصصين يعمل ضمن منظومةٍ واحدة.',
+      en: 'Architects, engineers and specialists of different nationalities and disciplines, brought together by shared values and a common way of working. Our work is the outcome of their collective knowledge.',
+      ar: 'معماريون ومهندسون ومتخصصون من جنسيات وتخصصات متعددة، تجمعهم قيم مشتركة وأسلوب عمل واحد. وأعمالنا ثمرة معرفتهم الجماعية.',
     },
     empty: { en: 'Team profiles are being prepared.', ar: 'يجري تجهيز ملفات أعضاء الفريق.' },
     placeholder: { en: 'Portrait placeholder', ar: 'صورة افتراضية' },
@@ -114,18 +118,22 @@ export class TeamPage {
 
   constructor() {
     this.seo.update({
-      title: 'Studio',
-      description: 'Meet the architects, engineers, and specialists at MSP.',
+      title: this.i18n.pick({
+        en: 'Our Team: Architects & Engineers',
+        ar: 'فريقنا: معماريون ومهندسون',
+      }),
+      description: this.i18n.pick({
+        en: 'Meet the people of MSP: architects, engineers and specialists of different disciplines and backgrounds, working to shared values.',
+        ar: 'تعرّف على فريق MSP: معماريون ومهندسون ومتخصصون من تخصصات وخلفيات متنوعة تجمعهم قيم مشتركة.',
+      }),
     });
 
-    afterNextRender(() => {
-      this.content.team().subscribe({
-        next: (list) => {
-          this.members.set([...list].sort((a, b) => a.sortOrder - b.sortOrder));
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.content.team().subscribe({
+      next: (list) => {
+        this.members.set([...list].sort((a, b) => a.sortOrder - b.sortOrder));
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
     });
   }
 

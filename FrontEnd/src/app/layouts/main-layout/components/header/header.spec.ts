@@ -19,7 +19,8 @@ describe('Header mobile navigation', () => {
             pick: (value: { en: string }) => value.en,
             isArabic: () => false,
             lang: () => 'en',
-            toggle: () => {},
+            path: (p: string) => p,
+            counterpartUrl: () => "/ar",
           },
         },
       ],
@@ -31,13 +32,13 @@ describe('Header mobile navigation', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
 
-    const brand = element.querySelector<HTMLAnchorElement>('a[aria-label="MSP Engineering Consultancy"]');
+    const brand = element.querySelector<HTMLAnchorElement>('a[aria-label="MSP, architecture and engineering consultancy"]');
     const logo = brand?.querySelector<HTMLImageElement>('img');
 
     expect(brand).toBeTruthy();
-    expect(brand?.getAttribute('aria-label')).toBe('MSP Engineering Consultancy');
-    expect(logo?.getAttribute('src')).toBe('/images/msp-logo.png');
-    expect(logo?.getAttribute('alt')).toBe('MSP Designs');
+    expect(brand?.getAttribute('aria-label')).toBe('MSP, architecture and engineering consultancy');
+    expect(logo?.getAttribute('src')).toBe('/images/msp-logo-144.png');
+    expect(logo?.getAttribute('alt')).toBe('MSP');
   });
 
   it('uses clear client-facing labels in the primary navigation', () => {

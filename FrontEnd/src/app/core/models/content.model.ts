@@ -56,8 +56,13 @@ export interface BlogPostItem {
   excerpt: L;
   body: L;
   cover: string;
+  gallery: string[];
   author: string;
   publishedAt: string | null;
+  seoTitle: L | null;
+  seoDescription: L | null;
+  /** Slug of a project this article links to, for an end-of-article CTA. */
+  relatedProjectSlug?: string;
 }
 
 /**
@@ -72,6 +77,7 @@ export interface CompanyInfo {
   email?: string;
   addressEn?: string;
   addressAr?: string;
+  mapUrl?: string;
   cairoPhone?: string;
   cairoAddressEn?: string;
   cairoAddressAr?: string;

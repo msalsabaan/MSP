@@ -39,9 +39,17 @@ export class BlogPost extends BaseEntity {
   @Column({ default: '' })
   cover: string;
 
+  @ApiProperty({ type: [String], description: 'Supporting article image filenames or URLs' })
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  gallery: string[];
+
   @ApiProperty()
   @Column({ default: '' })
   author: string;
+
+  @ApiProperty({ description: 'Slug of a project this article links to, for an end-of-article CTA' })
+  @Column({ name: 'related_project_slug', default: '' })
+  relatedProjectSlug: string;
 
   @ApiProperty({ enum: BlogStatus })
   @Column({ type: 'enum', enum: BlogStatus, default: BlogStatus.Published })

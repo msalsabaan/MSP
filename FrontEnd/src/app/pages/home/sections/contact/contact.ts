@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import {
   FormBuilder,
   ReactiveFormsModule,
@@ -50,22 +50,37 @@ interface ContactItem {
               }}<span class="italic text-accent">{{ i18n.pick(t.headingEm) }}</span>
             </h2>
 
+            <!-- Phones: one-thumb actions before the list (tel / WhatsApp). -->
+            <div class="mt-10 grid grid-cols-2 gap-3 sm:hidden">
+              <a
+                [href]="'tel:' + quick().phone"
+                class="inline-flex min-h-12 items-center justify-center bg-ink px-3 font-mono text-xs font-medium uppercase tracking-[0.12em] text-bg"
+              >{{ i18n.pick(t.call) }}</a>
+              <a
+                [href]="quick().whatsapp"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex min-h-12 items-center justify-center border border-ink/30 px-3 font-mono text-xs font-medium uppercase tracking-[0.12em] text-ink"
+              >{{ i18n.pick(t.whatsapp) }}</a>
+            </div>
+
             <dl class="mt-12 space-y-8">
               @for (detail of i18n.pick(details()); track detail.label) {
                 <div class="border-t border-hairline pt-4">
                   <dt class="font-mono text-xs uppercase tracking-[0.15em] text-accent">
                     {{ detail.label }}
                   </dt>
-                  <dd class="mt-2 text-lg text-ink" [attr.dir]="detail.ltr ? 'ltr' : null">
+                  <dd class="mt-2 text-lg text-ink">
                     @if (detail.href) {
                       <a
+                        [attr.dir]="detail.ltr ? 'ltr' : null"
                         [href]="detail.href"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="underline decoration-hairline underline-offset-4 transition-colors hover:text-accent"
                       >{{ detail.value }}</a>
                     } @else {
-                      {{ detail.value }}
+                      <span [attr.dir]="detail.ltr ? 'ltr' : null">{{ detail.value }}</span>
                     }
                   </dd>
                 </div>
@@ -161,22 +176,24 @@ export class Contact {
 
   protected readonly t = {
     eyebrow: { en: 'Contact', ar: 'تواصل معنا' },
-    headingPre: { en: 'Start a ', ar: 'لنتحدّث عن ' },
-    headingEm: { en: 'conversation.', ar: 'مشروعك.' },
-    sentKicker: { en: 'Message received', ar: 'تمّ استلام رسالتك' },
+    headingPre: { en: 'Start a ', ar: 'لنبدأ ' },
+    headingEm: { en: 'conversation.', ar: 'الحوار.' },
+    sentKicker: { en: 'Message received', ar: 'استلمنا رسالتك' },
     sentBody: {
-      en: "Thank you. We'll be in touch within one business day.",
-      ar: 'شكراً لك، سنتواصل معك خلال يوم عملٍ واحد.',
+      en: 'Thank you. We will be in touch shortly.',
+      ar: 'شكراً لك، سنتواصل معك قريباً.',
     },
     name: { en: 'Name', ar: 'الاسم' },
     namePh: { en: 'Your name', ar: 'اسمك الكريم' },
     email: { en: 'Email', ar: 'البريد الإلكتروني' },
     message: { en: 'About your project', ar: 'نبذة عن مشروعك' },
-    messagePh: { en: 'Site, scale, ambition…', ar: 'الموقع، والنطاق، والطموح…' },
-    send: { en: 'Send enquiry →', ar: 'أرسل طلبك →' },
+    messagePh: { en: 'Site, scale, ambition…', ar: 'الموقع، والحجم، والطموح…' },
+    send: { en: 'Send enquiry →', ar: 'أرسل طلبك ←' },
+    call: { en: 'Call Riyadh', ar: 'اتصل بمكتب الرياض' },
+    whatsapp: { en: 'WhatsApp', ar: 'واتساب' },
     errName: { en: 'Please enter your name.', ar: 'الرجاء إدخال اسمك.' },
-    errEmail: { en: 'Please enter a valid email.', ar: 'الرجاء إدخال بريدٍ إلكترونيٍّ صحيح.' },
-    errMessage: { en: 'Please add a little more detail.', ar: 'الرجاء إضافة مزيدٍ من التفاصيل.' },
+    errEmail: { en: 'Please enter a valid email.', ar: 'الرجاء إدخال بريد إلكتروني صحيح.' },
+    errMessage: { en: 'Please add a little more detail.', ar: 'الرجاء إضافة مزيد من التفاصيل.' },
   };
 
   protected readonly labelClass =
@@ -185,27 +202,33 @@ export class Contact {
     'w-full border-0 border-b border-hairline bg-transparent px-0 py-3 text-lg text-ink placeholder:text-muted/60 transition-colors focus:border-accent focus:outline-none';
   protected readonly errorClass = 'mt-2 font-mono text-xs uppercase tracking-[0.1em] text-accent';
 
+  /** Primary phone and WhatsApp link for the phone-only quick actions. */
+  protected readonly quick = computed(() => {
+    const c = this.cfg();
+    const whatsapp = c.whatsapp || '+966570327777';
+    return { phone: c.phone || '+966112000087', whatsapp: `https://wa.me/${whatsapp.replace(/\D/g, '')}` };
+  });
+
   protected readonly details = computed<{ en: ContactItem[]; ar: ContactItem[] }>(() => {
     const c = this.cfg();
-    const cairoMapUrl = c.cairoMapUrl || 'https://www.google.com/maps/place/MSP+DESIGNS/';
+    const cairoMapUrl = c.cairoMapUrl || 'https://www.google.com/maps?cid=7951323106422195141';
+    const mapUrl = c.mapUrl || 'https://www.google.com/maps?cid=14819986877967963984';
     return {
       en: [
-        { label: 'Established', value: '2010', ltr: true },
         { label: 'Email', value: c.email || 'info@msp.sa', ltr: true, href: `mailto:${c.email || 'info@msp.sa'}` },
         { label: 'Riyadh office telephone', value: c.phone || '+966112000087', ltr: true, href: `tel:${c.phone || '+966112000087'}` },
         { label: 'Mobile / WhatsApp', value: c.whatsapp || '+966570327777', ltr: true, href: `https://wa.me/${(c.whatsapp || '+966570327777').replace(/\D/g, '')}` },
-        { label: 'Riyadh office', value: c.addressEn || 'Riyadh, Saudi Arabia' },
+        { label: 'Riyadh office', value: c.addressEn || 'Irqah, Riyadh, Saudi Arabia', href: mapUrl },
         { label: 'Cairo telephone', value: c.cairoPhone || '+201068017313', ltr: true, href: `tel:${c.cairoPhone || '+201068017313'}` },
-        { label: 'Cairo branch', value: c.cairoAddressEn || 'Cairo, Egypt', href: cairoMapUrl },
+        { label: 'Cairo branch', value: c.cairoAddressEn || 'Rayhana Plaza, Zahraa El Maadi, Cairo, Egypt', href: cairoMapUrl },
       ],
       ar: [
-        { label: 'سنة التأسيس', value: '2010', ltr: true },
         { label: 'البريد الإلكتروني', value: c.email || 'info@msp.sa', ltr: true, href: `mailto:${c.email || 'info@msp.sa'}` },
         { label: 'هاتف مكتب الرياض', value: c.phone || '+966112000087', ltr: true, href: `tel:${c.phone || '+966112000087'}` },
         { label: 'الجوال / واتساب', value: c.whatsapp || '+966570327777', ltr: true, href: `https://wa.me/${(c.whatsapp || '+966570327777').replace(/\D/g, '')}` },
-        { label: 'فرع الرياض', value: c.addressAr || 'الرياض، المملكة العربية السعودية' },
+        { label: 'مكتب الرياض', value: c.addressAr || 'حي عرقة، الرياض، المملكة العربية السعودية', href: mapUrl },
         { label: 'هاتف فرع القاهرة', value: c.cairoPhone || '+201068017313', ltr: true, href: `tel:${c.cairoPhone || '+201068017313'}` },
-        { label: 'فرع القاهرة', value: c.cairoAddressAr || 'القاهرة، مصر', href: cairoMapUrl },
+        { label: 'فرع القاهرة', value: c.cairoAddressAr || 'ريحانة بلازا، زهراء المعادي، القاهرة، مصر', href: cairoMapUrl },
       ],
     };
   });
@@ -224,11 +247,9 @@ export class Contact {
   }
 
   constructor() {
-    afterNextRender(() => {
-      this.content.settings().subscribe({
-        next: (c) => this.cfg.set(c ?? {}),
-        error: () => {},
-      });
+    this.content.settings().subscribe({
+      next: (c) => this.cfg.set(c ?? {}),
+      error: () => {},
     });
   }
 }

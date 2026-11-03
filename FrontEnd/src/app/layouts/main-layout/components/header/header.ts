@@ -11,6 +11,7 @@ import { ThemeToggle } from '../../../../shared/ui/theme-toggle/theme-toggle';
 import { LangToggle } from '../../../../shared/ui/lang-toggle/lang-toggle';
 import { RiyadhClock } from '../../../../shared/ui/riyadh-clock/riyadh-clock';
 import { TranslationService } from '../../../../core/services/translation.service';
+import { LocPipe } from '../../../../shared/pipes/loc.pipe';
 
 interface NavLink {
   readonly path: string;
@@ -31,6 +32,7 @@ interface NavLink {
     ThemeToggle,
     LangToggle,
     RiyadhClock,
+    LocPipe,
   ],
   template: `
     <header
@@ -39,19 +41,21 @@ interface NavLink {
       <app-container>
         <nav class="flex h-20 items-center justify-between gap-6">
           <a
-            routerLink="/"
+            [routerLink]="'/' | loc"
             class="flex items-center gap-3 text-ink"
             [attr.aria-label]="i18n.pick(brandLabel)"
           >
             <img
-              src="/images/msp-logo.png"
-              alt="MSP Designs"
+              src="/images/msp-logo-144.png"
+              alt="MSP"
               width="48"
               height="48"
               class="h-12 w-12 shrink-0 object-contain dark:brightness-0 dark:invert"
             />
+            <!-- The caption steps aside on tablets (md), where the desktop nav
+                 first appears and would otherwise push the toggles off-screen. -->
             <span
-              class="hidden font-mono text-[0.65rem] uppercase leading-tight tracking-[0.18em] text-muted sm:block"
+              class="hidden font-mono text-[0.65rem] uppercase leading-tight tracking-[0.18em] text-muted sm:block md:hidden lg:block"
               [innerHTML]="i18n.pick(brandSub)"
             ></span>
           </a>
@@ -62,7 +66,7 @@ interface NavLink {
             @for (item of navItems; track item.path) {
               <li>
                 <a
-                  [routerLink]="item.path"
+                  [routerLink]="item.path | loc"
                   routerLinkActive="text-ink"
                   [routerLinkActiveOptions]="{ exact: item.path === '/' }"
                   class="text-muted transition-colors hover:text-ink"
@@ -120,7 +124,7 @@ interface NavLink {
                 @for (item of navItems; track item.path) {
                   <li>
                     <a
-                      [routerLink]="item.path"
+                      [routerLink]="item.path | loc"
                       routerLinkActive="text-accent"
                       [routerLinkActiveOptions]="{ exact: item.path === '/' }"
                       (click)="closeMenu()"
@@ -150,8 +154,8 @@ export class Header {
   };
 
   protected readonly brandLabel = {
-    en: 'MSP Engineering Consultancy',
-    ar: 'إم إس بي للاستشارات الهندسية',
+    en: 'MSP, architecture and engineering consultancy',
+    ar: 'MSP، استشارات معمارية وهندسية',
   };
 
   protected readonly menuOpenLabel = {

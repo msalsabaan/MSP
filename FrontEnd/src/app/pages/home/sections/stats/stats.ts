@@ -16,27 +16,27 @@ interface Stat {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Container, ScrollReveal, CountUp],
   template: `
-    <section class="bg-ink py-20 text-bg sm:py-28">
+    <section class="bg-band dark:border-y dark:border-hairline py-20 text-on-band sm:py-28">
       <app-container>
         <div
-          class="flex items-center gap-5 font-mono text-xs uppercase tracking-[0.18em] text-bg/50"
+          class="flex items-center gap-5 font-mono text-xs uppercase tracking-[0.18em] text-on-band/50"
         >
           <span class="text-accent">(04)</span>
           <span>{{ i18n.pick(t.eyebrow) }}</span>
-          <span class="h-px flex-1 bg-bg/15"></span>
+          <span class="h-px flex-1 bg-on-band/15"></span>
         </div>
 
-        <dl class="mt-14 grid grid-cols-1 gap-x-8 gap-y-12">
+        <dl class="mt-14 grid grid-cols-2 gap-x-8 gap-y-12">
           @for (stat of i18n.pick(t.stats); track stat.label; let i = $index) {
             <div appScrollReveal [revealDelay]="i * 90">
               <dt
                 [appCountUp]="stat.value"
-                class="font-display text-6xl font-medium leading-none tracking-[-0.02em] text-bg sm:text-7xl"
+                class="font-display text-6xl font-medium leading-none tracking-[-0.02em] text-on-band sm:text-7xl"
               >
                 <span data-count>0</span><span class="text-accent">{{ stat.suffix }}</span>
               </dt>
               <dd
-                class="mt-4 border-t border-bg/15 pt-4 font-mono text-xs uppercase tracking-[0.12em] text-bg/60"
+                class="mt-4 border-t border-on-band/15 pt-4 font-mono text-xs uppercase tracking-[0.12em] text-on-band/60"
               >
                 {{ stat.label }}
               </dd>
@@ -53,13 +53,15 @@ export class Stats {
   private readonly experienceYears = new Date().getFullYear() - this.foundingYear;
 
   protected readonly t = {
-    eyebrow: { en: 'By the Numbers', ar: 'بالأرقام' },
+    eyebrow: { en: 'At a Glance', ar: 'لمحة' },
     stats: {
       en: [
-        { value: this.experienceYears, suffix: ' yrs', label: 'In practice' },
+        { value: this.experienceYears, suffix: '+', label: 'Years in practice, since 2010' },
+        { value: 2, suffix: '', label: 'Offices — Riyadh · Cairo' },
       ],
       ar: [
-        { value: this.experienceYears, suffix: ' عاماً', label: 'من الخبرة' },
+        { value: this.experienceYears, suffix: '+', label: 'عاماً من الممارسة منذ 2010' },
+        { value: 2, suffix: '', label: 'مكتبان — الرياض · القاهرة' },
       ],
     },
   };

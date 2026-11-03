@@ -1,5 +1,6 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { SeoService } from '../../core/services/seo.service';
+import { TranslationService } from '../../core/services/translation.service';
 import { Hero } from './sections/hero/hero';
 import { About } from './sections/about/about';
 import { Services } from './sections/services/services';
@@ -52,11 +53,18 @@ import { Contact } from './sections/contact/contact';
 })
 export class Home {
   private readonly seo = inject(SeoService);
+  private readonly i18n = inject(TranslationService);
 
   constructor() {
     this.seo.update({
-      description:
-        'MSP Consultants — an architecture & engineering consultancy in Riyadh. Architecture, structural and MEP engineering, urban planning, and project management.',
+      title: this.i18n.pick({
+        en: 'Architecture & Engineering Consultancy in Riyadh',
+        ar: 'مكتب استشارات هندسية ومعمارية في الرياض',
+      }),
+      description: this.i18n.pick({
+        en: 'MSP is an architecture and engineering consultancy in Riyadh, established in 2010: architectural and interior design, structural and MEP engineering, supervision and project management.',
+        ar: 'استشارات هندسية ومعمارية في الرياض منذ 2010: تقدّم MSP التصميم المعماري والداخلي، والهندسة الإنشائية والكهروميكانيكية، والإشراف الهندسي وإدارة المشاريع.',
+      }),
     });
   }
 }

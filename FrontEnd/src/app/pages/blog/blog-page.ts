@@ -1,4 +1,4 @@
-import { Component, inject, signal, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Container } from '../../shared/ui/container/container';
 import { ScrollReveal } from '../../shared/directives/scroll-reveal.directive';
 import { TranslationService } from '../../core/services/translation.service';
@@ -6,12 +6,15 @@ import { SeoService } from '../../core/services/seo.service';
 import { PublicContentService } from '../../core/services/public-content.service';
 import { AssetPipe } from '../../shared/pipes/asset.pipe';
 import { BlogPostItem } from '../../core/models/content.model';
+import { RouterLink } from '@angular/router';
+import { LocPipe } from '../../shared/pipes/loc.pipe';
+import { SrcsetPipe } from '../../shared/pipes/srcset.pipe';
 
 /** Journal index — editorial cards of articles loaded from the API (detail pages added later). */
 @Component({
   selector: 'app-blog-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Container, ScrollReveal, AssetPipe],
+  imports: [RouterLink, Container, ScrollReveal, AssetPipe, LocPipe, SrcsetPipe],
   template: `
     <section class="border-b border-hairline bg-bg pt-16 pb-14 sm:pt-20">
       <app-container>
@@ -49,11 +52,15 @@ import { BlogPostItem } from '../../core/models/content.model';
         } @else {
           <div class="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
             @for (post of posts(); track post.slug; let i = $index) {
-              <a href="/blog" appScrollReveal [revealDelay]="(i % 3) * 70" class="group block">
+              <a [routerLink]="['/blog', post.slug] | loc" appScrollReveal [revealDelay]="(i % 3) * 70" class="group block">
                 <div appScrollReveal revealType="line" class="aspect-[16/10] overflow-hidden bg-hairline/40">
                   @if (post.cover) {
                     <img
+                      sizes="(min-width: 1200px) 357px, (min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw"
+                      [attr.srcset]="post.cover | srcset"
                       [src]="post.cover | asset"
+                      width="1200"
+                      height="750"
                       [alt]="i18n.pick(post.title)"
                       loading="lazy"
                       decoding="async"
@@ -94,30 +101,34 @@ export class BlogPage {
   protected readonly skeletons = [0, 1, 2, 3, 4, 5];
 
   protected readonly t = {
-    eyebrow: { en: 'Journal', ar: 'المدوّنة' },
-    title: { en: 'Ideas & field notes.', ar: 'أفكارٌ وملاحظاتٌ من الميدان.' },
+    eyebrow: { en: 'Insights', ar: 'الرؤى' },
+    title: { en: 'Perspectives on place and practice.', ar: 'رؤى في المكان والممارسة.' },
     intro: {
-      en: 'Writing on architecture, engineering, and building well in the Gulf.',
-      ar: 'كتاباتٌ في العمارة والهندسة والبناء الجيّد في الخليج.',
+      en: 'MSP’s perspectives on architecture, engineering and the experiences buildings make possible — the beginning of a knowledge platform we intend to develop over time.',
+      ar: 'رؤى MSP في العمارة والهندسة والتجارب التي تتيحها المباني، وهي بداية منصّة معرفية نعتزم تطويرها مع الوقت.',
     },
-    empty: { en: 'No articles published yet.', ar: 'لا توجد مقالاتٌ منشورة بعد.' },
+    empty: { en: 'No articles published yet.', ar: 'لا توجد مقالات منشورة بعد.' },
   };
 
   constructor() {
     this.seo.update({
-      title: 'Journal',
-      description: 'Writing on architecture, engineering, and building in the Gulf — from MSP Consultants.',
+      title: this.i18n.pick({
+        en: 'Insights on Architecture & Engineering',
+        ar: 'رؤى في العمارة والهندسة',
+      }),
+      description: this.i18n.pick({
+        en: 'MSP perspectives on architecture, engineering and the human experience of buildings, from hospitality design to designing for place in Saudi Arabia.',
+        ar: 'رؤى MSP في العمارة والهندسة والتجربة الإنسانية في المباني، من تصميم منشآت الضيافة إلى التصميم النابع من المكان في المملكة.',
+      }),
+      type: 'CollectionPage',
     });
 
-    // Browser-only fetch: keeps the route prerenderable (static skeleton shell).
-    afterNextRender(() => {
-      this.content.posts().subscribe({
-        next: (list) => {
-          this.posts.set(list);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.content.posts().subscribe({
+      next: (list) => {
+        this.posts.set(list);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
     });
   }
 }

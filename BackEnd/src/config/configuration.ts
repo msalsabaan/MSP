@@ -1,4 +1,24 @@
 /** Centralised, typed application configuration loaded from environment vars. */
+
+const isProduction = (process.env.NODE_ENV ?? 'development') === 'production';
+
+/**
+ * A secret that must never fall back to a value shipped in the repo. In
+ * development it takes the given default so the app runs out of the box; in
+ * production a missing value STOPS the boot, rather than silently running on a
+ * constant that anyone can read here and use to sign tokens or sign in.
+ */
+function secret(name: string, devDefault: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (isProduction) {
+    throw new Error(
+      `${name} is required in production — set it in the deployment environment.`,
+    );
+  }
+  return devDefault;
+}
+
 export default () => ({
   env: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -10,22 +30,45 @@ export default () => ({
     host: process.env.DB_HOST ?? 'localhost',
     port: parseInt(process.env.DB_PORT ?? '5432', 10),
     username: process.env.DB_USERNAME ?? 'msp',
-    password: process.env.DB_PASSWORD ?? 'msp_password',
+    password: secret('DB_PASSWORD', 'msp_password'),
     name: process.env.DB_NAME ?? 'msp_db',
-    synchronize: (process.env.DB_SYNCHRONIZE ?? 'true') === 'true',
+    // Postgres schema. Tests and migration dry-runs use an isolated schema in
+    // the same database, so they never need CREATEDB rights.
+    schema: process.env.DB_SCHEMA ?? 'public',
+    // Schema changes go through migrations (src/database/migrations). Auto-sync
+    // is an explicit opt-in for local development only — never in production,
+    // where it can silently drop columns and data.
+    synchronize: process.env.DB_SYNCHRONIZE === 'true',
   },
   jwt: {
-    secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+    // Sign both tokens with a per-deployment secret. The old fallback let
+    // anyone reading the repo forge a valid admin token without a password.
+    secret: secret('JWT_SECRET', 'dev-secret-change-me'),
     expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
-    refreshSecret: process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-me',
+    refreshSecret: secret('JWT_REFRESH_SECRET', 'dev-refresh-secret-change-me'),
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   },
   seed: {
     adminEmail: process.env.SEED_ADMIN_EMAIL ?? 'admin@msp.sa',
-    adminPassword: process.env.SEED_ADMIN_PASSWORD ?? 'Admin@12345',
+    // The first admin's password. Never a real one in the repo — production
+    // must supply its own, and it should be rotated in the app after seeding.
+    adminPassword: secret('SEED_ADMIN_PASSWORD', 'dev-only-change-me'),
   },
   upload: {
     dir: process.env.UPLOAD_DIR ?? 'uploads',
     maxMb: parseInt(process.env.MAX_UPLOAD_MB ?? '5', 10),
+  },
+  /** Public site origin used in emails (review links, completion links). */
+  publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:4200',
+  /** Vendor (office service) sessions — a secret of the office service only, unrelated to staff JWTs. */
+  vendorAuth: {
+    jwtSecret: secret('VENDOR_JWT_SECRET', 'dev-vendor-secret-change-me'),
+    tokenTtl: process.env.VENDOR_TOKEN_TTL ?? '12h',
+  },
+  vendorDocs: {
+    // Pending vendor documents. NOT under uploads/ and never served statically.
+    dir: process.env.VENDOR_DOCS_DIR ?? 'vendor-docs',
+    // Review-team inbox for new/resubmitted applications; empty = no mail.
+    reviewInbox: process.env.VENDOR_REVIEW_INBOX ?? '',
   },
 });

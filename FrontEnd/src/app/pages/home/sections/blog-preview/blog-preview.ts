@@ -3,7 +3,6 @@ import {
   inject,
   signal,
   computed,
-  afterNextRender,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { Section } from '../../../../shared/ui/section/section';
@@ -12,13 +11,15 @@ import { ScrollReveal } from '../../../../shared/directives/scroll-reveal.direct
 import { TranslationService } from '../../../../core/services/translation.service';
 import { PublicContentService } from '../../../../core/services/public-content.service';
 import { BlogPostItem } from '../../../../core/models/content.model';
+import { RouterLink } from '@angular/router';
+import { LocPipe } from '../../../../shared/pipes/loc.pipe';
 
 interface L {
   en: string;
   ar: string;
 }
 
-/** Unified row shape used for both the API data and the static fallback. */
+/** Row shape rendered for each published post. */
 interface Post {
   readonly key: string;
   readonly title: L;
@@ -31,8 +32,9 @@ interface Post {
 @Component({
   selector: 'app-blog-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Section, Container, ScrollReveal],
+  imports: [Section, Container, ScrollReveal, RouterLink, LocPipe],
   template: `
+    @if (posts().length) {
     <app-section>
       <app-container>
         <div
@@ -43,11 +45,11 @@ interface Post {
             <span>{{ i18n.pick(t.eyebrow) }}</span>
           </div>
           <a
-            href="/blog"
+            [routerLink]="'/blog' | loc"
             class="group inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-ink"
           >
             {{ i18n.pick(t.all) }}
-            <span class="dir-flip text-accent transition-transform duration-300 group-hover:translate-x-1">&rarr;</span>
+            <span class="dir-flip text-accent transition-transform duration-300 group-hover:translate-x-1 rtl:group-hover:-translate-x-1">&rarr;</span>
           </a>
         </div>
 
@@ -55,7 +57,7 @@ interface Post {
           @for (post of posts(); track post.key) {
             <li appScrollReveal class="group border-b border-hairline">
               <a
-                href="/blog"
+                [routerLink]="'/blog' | loc"
                 class="grid grid-cols-12 items-baseline gap-4 py-8 transition-[padding] duration-500 hover:ps-3"
               >
                 <span class="col-span-12 font-mono text-xs uppercase tracking-[0.12em] text-muted sm:col-span-3 lg:col-span-2">
@@ -78,70 +80,34 @@ interface Post {
         </ul>
       </app-container>
     </app-section>
+    }
   `,
 })
 export class BlogPreview {
   protected readonly i18n = inject(TranslationService);
   private readonly content = inject(PublicContentService);
 
-  /** API posts; null until a response arrives (or if the request failed). */
-  private readonly fetched = signal<Post[] | null>(null);
+  /** Published API posts only; the section stays hidden until there is at least one. */
+  private readonly fetched = signal<Post[]>([]);
 
-  protected readonly posts = computed<Post[]>(
-    () => this.fetched()?.slice(0, 3) ?? this.fallbackPosts,
-  );
+  protected readonly posts = computed<Post[]>(() => this.fetched().slice(0, 3));
 
   constructor() {
-    afterNextRender(() => {
-      this.content.posts().subscribe({
-        next: (list) => this.fetched.set(list.map(toPost)),
-        error: () => {},
-      });
+    this.content.posts().subscribe({
+      next: (list) => this.fetched.set(list.map(toPost)),
+      error: () => {},
     });
   }
 
   protected readonly t = {
-    eyebrow: { en: 'Journal', ar: 'المدوّنة' },
+    eyebrow: { en: 'Insights', ar: 'الرؤى' },
     all: { en: 'All writing', ar: 'كل المقالات' },
   };
-
-  private readonly fallbackPosts: Post[] = [
-    {
-      key: 'passive-cooling',
-      title: {
-        en: 'Designing for 50°C: passive cooling in the Gulf',
-        ar: 'التصميم عند الخمسين: التبريد السلبي في الخليج',
-      },
-      category: 'Sustainability',
-      date: { en: 'May 2026', ar: 'مايو ٢٠٢٦' },
-      readingTime: { en: '6 min', ar: '٦ دقائق' },
-    },
-    {
-      key: 'structure-as-architecture',
-      title: {
-        en: 'When structure becomes the architecture',
-        ar: 'حين يصبح الإنشاء عمارة',
-      },
-      category: 'Engineering',
-      date: { en: 'Apr 2026', ar: 'أبريل ٢٠٢٦' },
-      readingTime: { en: '8 min', ar: '٨ دقائق' },
-    },
-    {
-      key: 'city-after-oil',
-      title: {
-        en: 'Masterplanning for the city after oil',
-        ar: 'تخطيط المدن في عصر ما بعد النفط',
-      },
-      category: 'Urbanism',
-      date: { en: 'Mar 2026', ar: 'مارس ٢٠٢٦' },
-      readingTime: { en: '5 min', ar: '٥ دقائق' },
-    },
-  ];
 }
 
 /** Arabic minute count, with the dual/plural forms Arabic actually uses. */
 function arabicMinutes(n: number): string {
-  const digits = n.toLocaleString('ar-EG');
+  const digits = n.toLocaleString('ar-EG-u-nu-latn');
   if (n === 1) return 'دقيقة واحدة';
   if (n === 2) return 'دقيقتان';
   if (n <= 10) return `${digits} دقائق`;
@@ -166,7 +132,7 @@ function toPost(post: BlogPostItem): Post {
     key: post.id,
     title: post.title,
     category: post.category,
-    date: { en: fmt('en-GB'), ar: fmt('ar-EG') },
+    date: { en: fmt('en-GB'), ar: fmt('ar-EG-u-nu-latn') },
     readingTime: readingTime(post),
   };
 }

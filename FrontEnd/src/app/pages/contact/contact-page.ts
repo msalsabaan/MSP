@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Container } from '../../shared/ui/container/container';
 import { Button } from '../../shared/ui/button/button';
@@ -8,6 +8,7 @@ import { SeoService } from '../../core/services/seo.service';
 import { ApiService } from '../../core/services/api.service';
 import { PublicContentService } from '../../core/services/public-content.service';
 import { CompanyInfo } from '../../core/models/content.model';
+import { isolateNumbers } from '../../core/utils/bidi';
 
 interface L {
   en: string;
@@ -19,6 +20,18 @@ interface ContactDetail {
   value: L;
   ltr?: boolean;
   href?: string;
+  /** A wa.me link — renders a WhatsApp icon beside the value that opens a chat. */
+  whatsapp?: string;
+}
+
+/** One office pin on the contact map. */
+interface Office {
+  city: L;
+  coordinates: string;
+  map: string;
+  /** Position on the stylised map, as percentages of its box. */
+  x: number;
+  y: number;
 }
 
 /** Wrap a single string as the same value in both languages. */
@@ -62,36 +75,67 @@ function lv(s: string): L {
                   <dt class="font-mono text-xs uppercase tracking-[0.15em] text-accent">
                     {{ i18n.pick(d.label) }}
                   </dt>
-                  <dd class="mt-2 text-lg text-ink" [attr.dir]="d.ltr ? 'ltr' : null">
+                  <dd class="mt-2 flex items-center gap-3 text-lg text-ink">
                     @if (d.href) {
                       <a
+                        [attr.dir]="d.ltr ? 'ltr' : null"
                         [href]="d.href"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="underline decoration-hairline underline-offset-4 transition-colors hover:text-accent"
                       >{{ i18n.pick(d.value) }}</a>
                     } @else {
-                      {{ i18n.pick(d.value) }}
+                      <span [attr.dir]="d.ltr ? 'ltr' : null">{{ i18n.pick(d.value) }}</span>
+                    }
+                    @if (d.whatsapp) {
+                      <!-- Straight to a WhatsApp chat with the number beside it. -->
+                      <a
+                        [href]="d.whatsapp"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        [attr.aria-label]="i18n.pick(t.waChat)"
+                        [title]="i18n.pick(t.waChat)"
+                        class="inline-flex shrink-0 text-[#25D366] transition-opacity hover:opacity-75"
+                      >
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm0 1.67c2.2 0 4.27.86 5.83 2.42a8.19 8.19 0 0 1 2.42 5.82c0 4.54-3.7 8.24-8.25 8.24-1.48 0-2.93-.4-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24Zm4.52 10.35c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.16.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.01-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.43l-.48-.01c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.29Z"/>
+                        </svg>
+                      </a>
                     }
                   </dd>
                 </div>
               }
             </dl>
 
-            <!-- Map placeholder -->
+            <!-- Map: a stylised board carrying both offices, each pin linking
+                 to its location. Not a real tile map, so the two sit where
+                 they read clearly rather than to exact scale. -->
             <div class="mt-10 aspect-[16/10] overflow-hidden border border-hairline">
               <div
                 class="relative h-full w-full bg-surface"
-                style="background-image: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%), repeating-linear-gradient(0deg, var(--hairline) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, var(--hairline) 0 1px, transparent 1px 40px);"
+                style="background-image: repeating-linear-gradient(0deg, var(--hairline) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, var(--hairline) 0 1px, transparent 1px 40px);"
               >
-                <span
-                  class="absolute left-1/2 top-[45%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent ring-4 ring-accent/20"
-                ></span>
-                <span
-                  class="absolute bottom-3 left-3 font-mono text-[0.65rem] uppercase tracking-[0.15em] text-muted"
-                >
-                  24°38'N · 46°43'E
-                </span>
+                @for (o of offices; track o.coordinates) {
+                  <a
+                    [href]="o.map"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
+                    [style.left.%]="o.x"
+                    [style.top.%]="o.y"
+                    [attr.aria-label]="i18n.pick(o.city)"
+                  >
+                    <span
+                      class="h-3 w-3 rounded-full bg-accent ring-4 ring-accent/20 transition-transform duration-300 group-hover:scale-125"
+                    ></span>
+                    <span class="mt-1.5 font-mono text-[0.65rem] uppercase tracking-[0.12em] text-ink">
+                      {{ i18n.pick(o.city) }}
+                    </span>
+                    <span class="font-mono text-[0.6rem] tracking-[0.1em] text-muted" dir="ltr">
+                      {{ o.coordinates }}
+                    </span>
+                  </a>
+                }
               </div>
             </div>
           </div>
@@ -170,41 +214,74 @@ export class ContactPage {
     eyebrow: { en: 'Contact', ar: 'تواصل معنا' },
     title: { en: 'Let’s talk.', ar: 'لنتحدّث.' },
     intro: {
-      en: 'Tell us about your site and ambition. We reply within one business day.',
-      ar: 'أخبرنا عن موقعك وطموحك، ونعود إليك خلال يوم عملٍ واحد.',
+      en: 'Tell us about your site, your project and what you hope to achieve. We will respond to arrange an initial conversation.',
+      ar: 'حدّثنا عن موقعك ومشروعك وما تطمح إلى تحقيقه، وسنتواصل معك لترتيب لقاء أولي.',
     },
-    sentKicker: { en: 'Message received', ar: 'تمّ استلام رسالتك' },
-    sentBody: { en: 'Thank you — we’ll be in touch within one business day.', ar: 'شكراً لك، سنتواصل معك خلال يوم عملٍ واحد.' },
+    sentKicker: { en: 'Message received', ar: 'استلمنا رسالتك' },
+    sentBody: {
+      en: 'Thank you. We will respond to arrange an initial conversation.',
+      ar: 'شكراً لك. سنتواصل معك لترتيب لقاء أولي.',
+    },
     sending: { en: 'Sending…', ar: 'جارٍ الإرسال…' },
     sendFailed: { en: 'Could not send — please try again or email us.', ar: 'تعذّر الإرسال — حاول مجدداً أو راسلنا عبر البريد.' },
     name: { en: 'Name', ar: 'الاسم' },
     namePh: { en: 'Your name', ar: 'اسمك الكريم' },
     email: { en: 'Email', ar: 'البريد الإلكتروني' },
     message: { en: 'About your project', ar: 'نبذة عن مشروعك' },
-    messagePh: { en: 'Site, scale, ambition…', ar: 'الموقع، والنطاق، والطموح…' },
-    send: { en: 'Send enquiry →', ar: 'أرسل طلبك →' },
+    messagePh: { en: 'Site, project type, scale, aims…', ar: 'الموقع، ونوع المشروع، وحجمه، وأهدافه…' },
+    send: { en: 'Send enquiry →', ar: 'أرسل طلبك ←' },
     errName: { en: 'Please enter your name.', ar: 'الرجاء إدخال اسمك.' },
-    errEmail: { en: 'Please enter a valid email.', ar: 'الرجاء إدخال بريدٍ إلكترونيٍّ صحيح.' },
-    errMessage: { en: 'Please add a little more detail.', ar: 'الرجاء إضافة مزيدٍ من التفاصيل.' },
+    errEmail: { en: 'Please enter a valid email.', ar: 'الرجاء إدخال بريد إلكتروني صحيح.' },
+    errMessage: { en: 'Please add a little more detail.', ar: 'الرجاء إضافة مزيد من التفاصيل.' },
+    waChat: { en: 'Chat on WhatsApp', ar: 'محادثة عبر واتساب' },
   };
+
+  /** Both offices, shown as pins on the map. Coordinates are printed as given;
+   *  the map link uses their decimal form so it opens the right spot. */
+  protected readonly offices: readonly Office[] = [
+    {
+      // The office's own Google listing (cid opens the MSP Designs card).
+      city: { en: 'Riyadh', ar: 'الرياض' },
+      coordinates: "24°41'N · 46°35'E",
+      map: 'https://www.google.com/maps?cid=14819986877967963984',
+      x: 66,
+      y: 58,
+    },
+    {
+      city: { en: 'Cairo', ar: 'القاهرة' },
+      coordinates: "29°58'N · 31°18'E",
+      map: 'https://www.google.com/maps?cid=7951323106422195141',
+      x: 31,
+      y: 34,
+    },
+  ];
 
   protected readonly details = computed<ContactDetail[]>(() => {
     const c = this.cfg();
+    const mobile = c.whatsapp || '+966570327777';
+    const hours = c.workingHours ?? { en: 'Sun–Thu · 9:00–17:00', ar: 'الأحد – الخميس · من 9:00 إلى 17:00' };
     const result: ContactDetail[] = [
-      { label: { en: 'Established', ar: 'سنة التأسيس' }, value: lv('2010'), ltr: true },
       { label: { en: 'Email', ar: 'البريد الإلكتروني' }, value: lv(c.email || 'info@msp.sa'), ltr: true, href: `mailto:${c.email || 'info@msp.sa'}` },
       { label: { en: 'Riyadh office telephone', ar: 'هاتف مكتب الرياض' }, value: lv(c.phone || '+966112000087'), ltr: true, href: `tel:${c.phone || '+966112000087'}` },
-      { label: { en: 'Mobile / WhatsApp', ar: 'الجوال / واتساب' }, value: lv(c.whatsapp || '+966570327777'), ltr: true, href: `https://wa.me/${(c.whatsapp || '+966570327777').replace(/\D/g, '')}` },
       {
-        label: { en: 'Riyadh office', ar: 'فرع الرياض' },
+        // The number calls when tapped; the icon beside it opens a WhatsApp chat.
+        label: { en: 'Mobile / WhatsApp', ar: 'الجوال / واتساب' },
+        value: lv(mobile),
+        ltr: true,
+        href: `tel:${mobile}`,
+        whatsapp: `https://wa.me/${mobile.replace(/\D/g, '')}`,
+      },
+      {
+        label: { en: 'Riyadh office', ar: 'مكتب الرياض' },
         value: {
-          en: c.addressEn || 'King Fahd Road, Riyadh, Saudi Arabia',
-          ar: c.addressAr || 'طريق الملك فهد، الرياض، المملكة العربية السعودية',
+          en: c.addressEn || 'Irqah, Riyadh, Saudi Arabia',
+          ar: c.addressAr || 'حي عرقة، الرياض، المملكة العربية السعودية',
         },
+        href: c.mapUrl || 'https://www.google.com/maps?cid=14819986877967963984',
       },
       {
         label: { en: 'Hours', ar: 'ساعات العمل' },
-        value: c.workingHours ?? { en: 'Sun–Thu · 9:00–17:00', ar: 'الأحد–الخميس · ٩:٠٠–١٧:٠٠' },
+        value: { en: hours.en, ar: isolateNumbers(hours.ar) },
       },
     ];
     const cairoPhone = c.cairoPhone || '+201068017313';
@@ -213,14 +290,15 @@ export class ContactPage {
       value: lv(cairoPhone),
       ltr: true,
       href: `tel:${cairoPhone}`,
+      whatsapp: `https://wa.me/${cairoPhone.replace(/\D/g, '')}`,
     });
     result.push({
       label: { en: 'Cairo branch', ar: 'فرع القاهرة' },
       value: {
-        en: c.cairoAddressEn || 'Cairo, Egypt',
-        ar: c.cairoAddressAr || 'القاهرة، مصر',
+        en: c.cairoAddressEn || 'Rayhana Plaza, Zahraa El Maadi, Cairo, Egypt',
+        ar: c.cairoAddressAr || 'ريحانة بلازا، زهراء المعادي، القاهرة، مصر',
       },
-      href: c.cairoMapUrl || 'https://www.google.com/maps/place/MSP+DESIGNS/',
+      href: c.cairoMapUrl || 'https://www.google.com/maps?cid=7951323106422195141',
     });
     return result;
   });
@@ -256,15 +334,20 @@ export class ContactPage {
 
   constructor() {
     this.seo.update({
-      title: 'Contact',
-      description: 'Get in touch with MSP Consultants — architecture & engineering in Riyadh.',
+      title: this.i18n.pick({
+        en: 'Contact Our Riyadh & Cairo Offices',
+        ar: 'تواصل معنا: مكتبا الرياض والقاهرة',
+      }),
+      description: this.i18n.pick({
+        en: 'Contact MSP, an architecture and engineering consultancy with offices in Riyadh (Irqah) and Cairo. Tell us about your site and your project.',
+        ar: 'تواصل مع MSP، مكتب الاستشارات المعمارية والهندسية في الرياض (حي عرقة) والقاهرة. حدّثنا عن موقعك ومشروعك.',
+      }),
+      type: 'ContactPage',
     });
 
-    afterNextRender(() => {
-      this.content.settings().subscribe({
-        next: (c) => this.cfg.set(c ?? {}),
-        error: () => {},
-      });
+    this.content.settings().subscribe({
+      next: (c) => this.cfg.set(c ?? {}),
+      error: () => {},
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Container } from '../../shared/ui/container/container';
 import { ScrollReveal } from '../../shared/directives/scroll-reveal.directive';
@@ -6,13 +6,23 @@ import { TranslationService } from '../../core/services/translation.service';
 import { SeoService } from '../../core/services/seo.service';
 import { PublicContentService } from '../../core/services/public-content.service';
 import { AssetPipe } from '../../shared/pipes/asset.pipe';
-import { Project, TYPOLOGIES } from '../../core/data/projects';
+import { Project } from '../../core/data/projects';
+import { DESIGN_CATEGORIES, SECTORS, Term, label } from '../../core/data/taxonomy';
+import { countsFor, filterProjects, sectorsOf } from '../../core/data/project-filter';
+import { LocPipe } from '../../shared/pipes/loc.pipe';
+import { SrcsetPipe } from '../../shared/pipes/srcset.pipe';
 
-/** Works index — a filterable, uniform grid of all projects (loaded from the API). */
+/**
+ * Works index — a two-level filter over a uniform grid.
+ *
+ * The top row is the design field, the second the sector; picking one from each
+ * intersects them. Both rows list the whole taxonomy so the page reads the same
+ * every visit, with chips that would empty the grid dimmed rather than hidden.
+ */
 @Component({
   selector: 'app-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Container, ScrollReveal, AssetPipe],
+  imports: [RouterLink, Container, ScrollReveal, AssetPipe, LocPipe, SrcsetPipe],
   template: `
     <!-- Page header -->
     <section class="border-b border-hairline bg-bg pt-16 pb-12 sm:pt-20">
@@ -35,24 +45,39 @@ import { Project, TYPOLOGIES } from '../../core/data/projects';
       </app-container>
     </section>
 
-    <!-- Filter chips -->
-    <section class="sticky top-20 z-30 border-b border-hairline bg-bg/90 py-4 backdrop-blur-md">
+    <!-- Two-level filter: design field over sector -->
+    <section class="sticky top-20 z-30 border-b border-hairline bg-bg/90 py-5 backdrop-blur-md">
       <app-container>
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            (click)="setFilter(null)"
-            [class]="chipClass(activeKey() === null)"
-          >
+        <!-- Row 1 — design field. Carries the visual weight of the two. -->
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-2.5">
+          <button type="button" (click)="setCategory(null)" [class]="topChip(category() === null, true)">
             {{ i18n.pick(t.all) }}
           </button>
-          @for (typ of typologies(); track typ.key) {
+          @for (term of designCategories; track term.key) {
             <button
               type="button"
-              (click)="setFilter(typ.key)"
-              [class]="chipClass(activeKey() === typ.key)"
+              [disabled]="categoryCount(term.key) === 0"
+              (click)="setCategory(term.key)"
+              [class]="topChip(category() === term.key, categoryCount(term.key) > 0)"
             >
-              {{ i18n.pick(typ) }}
+              {{ i18n.pick(term) }}
+            </button>
+          }
+        </div>
+
+        <!-- Row 2 — sector. Quieter, and clearly subordinate to the row above. -->
+        <div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-hairline/70 pt-3">
+          <button type="button" (click)="setSector(null)" [class]="subChip(sector() === null, true)">
+            {{ i18n.pick(t.allSectors) }}
+          </button>
+          @for (term of sectors; track term.key) {
+            <button
+              type="button"
+              [disabled]="sectorCount(term.key) === 0"
+              (click)="setSector(term.key)"
+              [class]="subChip(sector() === term.key, sectorCount(term.key) > 0)"
+            >
+              {{ i18n.pick(term) }}
             </button>
           }
         </div>
@@ -75,11 +100,15 @@ import { Project, TYPOLOGIES } from '../../core/data/projects';
         } @else {
           <div class="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
             @for (project of filtered(); track project.slug) {
-              <a [routerLink]="['/projects', project.slug]" class="group block">
+              <a [routerLink]="['/projects', project.slug] | loc" class="group block">
                 <div appScrollReveal revealType="line" class="aspect-[4/3] overflow-hidden bg-hairline/40">
                   @if (project.cover) {
                     <img
+                      sizes="(min-width: 1200px) 357px, (min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw"
+                      [attr.srcset]="project.cover | srcset"
                       [src]="project.cover | asset"
+                      width="1200"
+                      height="900"
                       [alt]="i18n.pick(project.title)"
                       loading="lazy"
                       decoding="async"
@@ -99,7 +128,7 @@ import { Project, TYPOLOGIES } from '../../core/data/projects';
                   }
                 </div>
                 <p class="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-muted">
-                  {{ i18n.pick(project.typology) }} · {{ i18n.pick(project.location) }}
+                  {{ i18n.pick(cardLabel(project)) }} · {{ i18n.pick(project.location) }}
                 </p>
               </a>
             }
@@ -122,57 +151,103 @@ export class Projects {
   protected readonly loading = signal(true);
   protected readonly skeletons = [0, 1, 2, 3, 4, 5];
 
-  /** Only show filter chips for typologies actually present in the loaded data. */
-  protected readonly typologies = computed(() =>
-    TYPOLOGIES.filter((typ) => this.projects().some((p) => p.typology.key === typ.key)),
+  protected readonly designCategories = DESIGN_CATEGORIES;
+  protected readonly sectors = SECTORS;
+
+  protected readonly category = signal<string | null>(null);
+  protected readonly sector = signal<string | null>(null);
+
+  /** Both axes at once: a project must satisfy every active one. */
+  protected readonly filtered = computed(() =>
+    filterProjects(this.projects(), this.category(), this.sector()),
   );
 
-  protected readonly activeKey = signal<string | null>(null);
-  protected readonly filtered = computed(() => {
-    const key = this.activeKey();
-    const all = this.projects();
-    return key ? all.filter((p) => p.typology.key === key) : all;
-  });
+  // Each row is counted against the OTHER row's selection, so a chip is dimmed
+  // exactly when clicking it would leave the visitor with an empty grid.
+  private readonly categoryCounts = computed(() =>
+    countsFor(this.projects(), 'category', DESIGN_CATEGORIES, this.sector()),
+  );
+  private readonly sectorCounts = computed(() =>
+    countsFor(this.projects(), 'sector', SECTORS, this.category()),
+  );
+
+  protected categoryCount(key: string): number {
+    return this.categoryCounts().get(key) ?? 0;
+  }
+
+  protected sectorCount(key: string): number {
+    return this.sectorCounts().get(key) ?? 0;
+  }
+
+  /** Cards name the first sector. The legacy label is a display-only
+   *  fallback for a record nobody has classified yet — it filters nothing. */
+  protected cardLabel(project: Project): Term {
+    const [first] = sectorsOf(project);
+    return first ? label(SECTORS, first) : project.typology;
+  }
 
   protected readonly t = {
     eyebrow: { en: 'Works', ar: 'الأعمال' },
-    title: { en: 'Selected works.', ar: 'أعمالٌ مختارة.' },
+    title: { en: 'Selected works.', ar: 'أعمال مختارة.' },
     intro: {
-      en: 'Buildings, infrastructure, and places across the Kingdom — from civic landmarks to masterplans.',
-      ar: 'مبانٍ وبنىً تحتية وأماكنُ في أنحاء المملكة — من المعالم العامة إلى المخطّطات الشاملة.',
+      en: 'A selection of residential, hospitality and commercial work — villas and compounds, a hotel and serviced apartments, offices and commercial-residential buildings — showing how our disciplines come together in practice.',
+      ar: 'مختارات من مشاريعنا السكنية والتجارية ومشاريع الضيافة، من الفلل والمجمّعات السكنية إلى فندق وشقق فندقية ومبانٍ مكتبية وتجارية سكنية، تعكس كيف تتكامل تخصّصاتنا في الممارسة.',
     },
     all: { en: 'All', ar: 'الكل' },
+    allSectors: { en: 'All sectors', ar: 'كل القطاعات' },
     empty: { en: 'No projects in this category yet.', ar: 'لا توجد مشاريع في هذه الفئة بعد.' },
   };
 
   constructor() {
     this.seo.update({
-      title: 'Works',
-      description:
-        'Selected architecture and engineering projects by MSP Consultants across Saudi Arabia.',
+      title: this.i18n.pick({
+        en: 'Architecture & Engineering Projects in Saudi Arabia',
+        ar: 'مشاريع معمارية وهندسية في السعودية',
+      }),
+      description: this.i18n.pick({
+        en: 'Residential, hospitality and commercial projects by MSP in Riyadh and Madinah: villas and compounds, a hotel, serviced apartments and office buildings.',
+        ar: 'مشاريع MSP السكنية والتجارية ومشاريع الضيافة في الرياض والمدينة المنورة: فلل ومجمعات سكنية وفندق وشقق فندقية ومبانٍ مكتبية.',
+      }),
+      type: 'CollectionPage',
     });
 
-    // Browser-only fetch: keeps the route prerenderable (static skeleton shell).
-    afterNextRender(() => {
-      this.content.projects().subscribe({
-        next: (list) => {
-          this.projects.set(list);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.content.projects().subscribe({
+      next: (list) => {
+        this.projects.set(list);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
     });
   }
 
-  protected setFilter(key: string | null): void {
-    this.activeKey.set(key);
+  /** Changing one row clears the other only if the pair would show nothing. */
+  protected setCategory(key: string | null): void {
+    this.category.set(key);
+    const sector = this.sector();
+    if (sector !== null && this.sectorCount(sector) === 0) this.sector.set(null);
   }
 
-  protected chipClass(active: boolean): string {
+  protected setSector(key: string | null): void {
+    this.sector.set(key);
+    const category = this.category();
+    if (category !== null && this.categoryCount(category) === 0) this.category.set(null);
+  }
+
+  /** Top row: bigger type, and the active one goes solid dark. */
+  protected topChip(active: boolean, enabled: boolean): string {
     const base =
-      'rounded-full border px-4 py-2 font-mono text-xs uppercase tracking-[0.1em] transition-colors';
-    return active
-      ? `${base} border-ink bg-ink text-bg`
-      : `${base} border-hairline text-muted hover:border-ink hover:text-ink`;
+      'rounded-full border px-4 py-2 text-sm font-medium tracking-[0.02em] transition-colors sm:px-5 sm:text-base';
+    if (active) return `${base} border-ink bg-ink text-bg`;
+    if (!enabled) return `${base} cursor-not-allowed border-hairline/60 text-muted/40`;
+    return `${base} border-hairline text-ink hover:border-ink hover:bg-ink/5`;
+  }
+
+  /** Second row: the quieter mono chip the page already used. */
+  protected subChip(active: boolean, enabled: boolean): string {
+    const base =
+      'rounded-full border px-3 py-1.5 font-mono text-[0.7rem] uppercase tracking-[0.1em] transition-colors sm:text-xs';
+    if (active) return `${base} border-ink bg-ink text-bg`;
+    if (!enabled) return `${base} cursor-not-allowed border-hairline/60 text-muted/40`;
+    return `${base} border-hairline text-muted hover:border-ink hover:text-ink`;
   }
 }

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /auth
+Disallow: /vendors
+Disallow: /ar/vendors
+
+Sitemap: https://www.msp.sa/sitemap.xml

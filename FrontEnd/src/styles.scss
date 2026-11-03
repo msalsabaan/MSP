@@ -177,6 +177,52 @@ body::before {
   }
 }
 
+// Above-the-fold entrance (`revealOnLoad`): the same rise / wipe, played by CSS
+// from the first paint of the server HTML — no JS, no re-hide at hydration.
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-wipe {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 -10% 0);
+  }
+}
+
+.reveal-load {
+  animation: reveal-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms) both;
+
+  &.reveal-load--line {
+    animation-name: reveal-wipe;
+    animation-duration: 1s;
+  }
+
+  // Primary hero text: same timing and easing, but position only — it is
+  // painted (and counts for LCP) from the first frame.
+  &.reveal-load--visible {
+    animation-name: reveal-settle;
+  }
+}
+
+@keyframes reveal-settle {
+  from {
+    transform: translateY(24px);
+  }
+  to {
+    transform: none;
+  }
+}
+
 // Slow editorial marquee.
 @keyframes marquee-scroll {
   from {
@@ -193,8 +239,35 @@ body::before {
   animation: marquee-scroll 38s linear infinite;
 }
 
+.marquee-track--reverse {
+  animation-direction: reverse;
+}
+
 .marquee:hover .marquee-track {
   animation-play-state: paused;
+}
+
+// Client logos: grayscale on paper at rest, own colour on hover. Multiply
+// lets white-backed logo files sit on the tile without a visible box.
+.client-tile img {
+  mix-blend-mode: multiply;
+  filter: grayscale(1);
+  opacity: 0.8;
+  transition:
+    filter 0.4s ease,
+    opacity 0.4s ease;
+}
+
+.client-tile:hover img {
+  filter: none;
+  opacity: 1;
+}
+
+// Phones: the same balanced sizes, a touch smaller for the narrower tiles.
+@media (max-width: 639px) {
+  .client-tile img {
+    scale: 0.85;
+  }
 }
 
 // Respect reduced-motion preferences.
@@ -213,6 +286,10 @@ body::before {
   }
 
   // Never leave content hidden if motion is disabled.
+  .reveal-load {
+    animation: none !important;
+  }
+
   .reveal,
   .reveal-line {
     opacity: 1 !important;
